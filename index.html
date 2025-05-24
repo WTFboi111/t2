@@ -202,8 +202,8 @@
     // Глобальные переменные
     let app, engine, fruits, canDrop, nextFruitIndex;
     let score = 0;
-    const baseSize = 26;
-    const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.27, i));
+    const baseSize = 25;
+    const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.255, i));
     const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
 
     // Аудио переменные
@@ -358,11 +358,12 @@
       fruits = fruits.filter(f => f.sizeIndex >= 3);
     }
 
-    // Функция для тряски фруктов
+    // Функция для тряски фруктов (только горизонтальное движение)
     function shakeFruits() {
       fruits.forEach(fruit => {
         const force = {
           x: (Math.random() - 0.5) * 0.05,
+          y: 0 // Нет вертикального движения
         };
         Body.applyForce(fruit.body, fruit.body.position, force);
       });
@@ -468,11 +469,19 @@
       document.getElementById('soundButton').addEventListener('click', toggleSound);
       
       // Добавляем обработчики для специальных кнопок
-      document.getElementById('removeSmallFruits').addEventListener('click', removeSmallFruits);
-      document.getElementById('shakeFruits').addEventListener('click', shakeFruits);
+      document.getElementById('removeSmallFruits').addEventListener('click', function(e) {
+        e.stopPropagation(); // Предотвращаем всплытие события
+        removeSmallFruits();
+      });
+      
+      document.getElementById('shakeFruits').addEventListener('click', function(e) {
+        e.stopPropagation(); // Предотвращаем всплытие события
+        shakeFruits();
+      });
 
       window.addEventListener('pointerdown', (e) => {
         if (!canDrop) return;
+        if (e.target.closest('.special-button')) return; // Игнорируем клики по кнопкам
 
         const rect = app.view.getBoundingClientRect();
         let x = e.clientX - rect.left;
