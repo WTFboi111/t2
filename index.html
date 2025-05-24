@@ -145,7 +145,7 @@
     .special-button {
       padding: 10px 20px;
       font-size: 16px;
-      background: #FF9800;
+      background: #8B5A2B; /* Коричневый цвет */
       color: white;
       border: none;
       border-radius: 5px;
@@ -153,7 +153,7 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     .special-button:hover {
-      background: #F57C00;
+      background: #A67C52; /* Светло-коричневый при наведении */
     }
   </style>
 </head>
@@ -185,8 +185,8 @@
 
   <!-- Добавляем специальные кнопки -->
   <div id="specialButtons">
-    <button id="removeSmallFruits" class="special-button">Удалить мелкие фрукты</button>
-    <button id="shakeFruits" class="special-button">Встряхнуть фрукты</button>
+    <button id="removeSmallFruits" class="special-button">Удалить мелочь</button>
+    <button id="shakeFruits" class="special-button">Встряхнуть</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
@@ -204,6 +204,7 @@
     let score = 0;
     const baseSize = 26;
     const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.27, i));
+    const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
 
     // Аудио переменные
     let audioContext;
@@ -368,6 +369,17 @@
       });
     }
 
+    // Функция для безопасного позиционирования фрукта у границ
+    function getSafeDropX(x) {
+      const width = app.renderer.width;
+      if (x < BORDER_SAFE_MARGIN) {
+        return BORDER_SAFE_MARGIN;
+      } else if (x > width - BORDER_SAFE_MARGIN) {
+        return width - BORDER_SAFE_MARGIN;
+      }
+      return x;
+    }
+
     function startGame() {
       document.getElementById('startScreen').style.display = 'none';
       canDrop = true;
@@ -464,7 +476,11 @@
         if (!canDrop) return;
 
         const rect = app.view.getBoundingClientRect();
-        const x = e.clientX - rect.left;
+        let x = e.clientX - rect.left;
+        
+        // Корректируем позицию для безопасного спавна
+        x = getSafeDropX(x);
+        
         createFruit(x, 0, nextFruitIndex);
         canDrop = false;
         setTimeout(() => canDrop = true, 300);
