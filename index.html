@@ -13,11 +13,11 @@
       background: url('https://wallpaper-house.com/data/out/8/wallpaper2you_235377.jpg');
       background-size: cover;
     }
-    #scoreboard, #startScreen, #gameOverScreen {
+    /* Переносим очки в левый верхний угол */
+    #scoreboard {
       position: absolute;
       top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
+      left: 10px;
       background: rgba(255, 255, 255, 0.8);
       padding: 10px 20px;
       border-radius: 12px;
@@ -25,21 +25,30 @@
       font-weight: bold;
       z-index: 3;
     }
-    #startScreen, #gameOverScreen {
-      top: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 24px;
-      text-align: center;
-      padding: 20px;
-      display: none;
-    }
+    /* Переносим превью следующего фрукта над игровым контейнером */
     #nextFruitContainer {
       position: absolute;
-      top: 600px;
+      top: 10px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 2;
       pointer-events: none;
+      background: rgba(255, 255, 255, 0.5);
+      padding: 5px;
+      border-radius: 50%;
+    }
+    #startScreen, #gameOverScreen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      text-align: center;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 15px;
+      display: none;
+      z-index: 4;
     }
     #gameWrapper {
       position: absolute;
@@ -61,6 +70,7 @@
       position: relative;
       background: url('https://c4.wallpaperflare.com/wallpaper/252/303/689/background-dirt-minecraft-minimalistic-wallpaper-preview.jpg');
       background-size: cover;
+      margin-top: 60px; /* Добавляем отступ сверху для превью фрукта */
     }
     #gameFloor {
       position: absolute;
@@ -308,11 +318,11 @@
       const texture = PIXI.Texture.from(`assets/t${nextFruitIndex + 1}.png`);
       nextPreviewSprite = new PIXI.Sprite(texture);
       nextPreviewSprite.anchor.set(0.5);
-      nextPreviewSprite.width = size;
-      nextPreviewSprite.height = size;
+      nextPreviewSprite.width = size * 1.5; // Увеличиваем размер превью
+      nextPreviewSprite.height = size * 1.5;
       nextPreviewSprite.x = app.renderer.width / 2;
-      nextPreviewSprite.y = 50;
-      nextPreviewSprite.alpha = 0.5;
+      nextPreviewSprite.y = size * 1.5; // Позиционируем над игровым полем
+      nextPreviewSprite.alpha = 0.8; // Делаем менее прозрачным
       app.stage.addChild(nextPreviewSprite);
     }
 
