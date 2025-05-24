@@ -13,32 +13,26 @@
       background: url('https://wallpaper-house.com/data/out/8/wallpaper2you_235377.jpg');
       background-size: cover;
     }
-    /* Очки в левом верхнем углу */
+    /* Очки в левом верхнем углу без фона */
     #scoreboard {
       position: absolute;
       top: 10px;
       left: 10px;
-      background: rgba(255, 255, 255, 0.8);
-      padding: 10px 20px;
-      border-radius: 12px;
-      font-size: 18px;
+      font-size: 24px;
       font-weight: bold;
+      color: white;
+      text-shadow: 1px 1px 3px black;
       z-index: 3;
     }
-    /* Превью фрукта над игровым контейнером (вне его) */
+    /* Превью фрукта над игровым контейнером без фона */
     #nextFruitPreview {
       position: absolute;
       top: 20px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 2;
-      width: 75px;
-      height: 75px;
-      background: rgba(255, 255, 255, 0.5);
-      border-radius:10%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      width: 60px;
+      height: 60px;
     }
     #startScreen, #gameOverScreen {
       position: absolute;
@@ -73,7 +67,7 @@
       position: relative;
       background: url('https://c4.wallpaperflare.com/wallpaper/252/303/689/background-dirt-minecraft-minimalistic-wallpaper-preview.jpg');
       background-size: cover;
-      margin-top: 80px; /* Отступ для превью фрукта */
+      margin-top: 80px;
     }
     #gameFloor {
       position: absolute;
@@ -138,12 +132,35 @@
       cursor: pointer;
       z-index: 10;
     }
+    /* Стили для специальных кнопок */
+    #specialButtons {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      z-index: 10;
+    }
+    .special-button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #FF9800;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .special-button:hover {
+      background: #F57C00;
+    }
   </style>
 </head>
 <body>
   <button id="soundButton">🔇</button>
   <div id="scoreboard">Score: <span id="score">0</span></div>
-  <div id="nextFruitPreview"></div> <!-- Новый контейнер для превью -->
+  <div id="nextFruitPreview"></div>
   
   <div id="startScreen">
     <h1>ЯМА 2</h1>
@@ -164,6 +181,12 @@
     <div id="gameContainer">
       <div id="gameFloor"></div>
     </div>
+  </div>
+
+  <!-- Добавляем специальные кнопки -->
+  <div id="specialButtons">
+    <button id="removeSmallFruits" class="special-button">Удалить мелкие фрукты</button>
+    <button id="shakeFruits" class="special-button">Встряхнуть фрукты</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
@@ -194,7 +217,6 @@
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Загрузка аудиофайла
         const response = await fetch('/assets/t.mp3');
         const arrayBuffer = await response.arrayBuffer();
         backgroundMusicBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -220,8 +242,6 @@
         musicSource.loop = true;
         musicSource.connect(audioContext.destination);
         musicSource.start(0);
-        
-        console.log('Music started');
       } catch (e) {
         console.error('Error playing music:', e);
       }
@@ -321,10 +341,31 @@
       const size = fruitSizes[nextFruitIndex];
       const img = document.createElement('img');
       img.src = `assets/t${nextFruitIndex + 1}.png`;
-      img.style.width = '80%';
-      img.style.height = '80%';
+      img.style.width = '100%';
+      img.style.height = '100%';
       img.style.objectFit = 'contain';
       previewContainer.appendChild(img);
+    }
+
+    // Функция для удаления маленьких фруктов (1-3 уровень)
+    function removeSmallFruits() {
+      const smallFruits = fruits.filter(f => f.sizeIndex < 3);
+      smallFruits.forEach(fruit => {
+        World.remove(engine.world, fruit.body);
+        app.stage.removeChild(fruit.sprite);
+      });
+      fruits = fruits.filter(f => f.sizeIndex >= 3);
+    }
+
+    // Функция для тряски фруктов
+    function shakeFruits() {
+      fruits.forEach(fruit => {
+        const force = {
+          x: (Math.random() - 0.5) * 0.05,
+          y: -Math.random() * 0.05
+        };
+        Body.applyForce(fruit.body, fruit.body.position, force);
+      });
     }
 
     function startGame() {
@@ -414,6 +455,10 @@
         location.reload();
       });
       document.getElementById('soundButton').addEventListener('click', toggleSound);
+      
+      // Добавляем обработчики для специальных кнопок
+      document.getElementById('removeSmallFruits').addEventListener('click', removeSmallFruits);
+      document.getElementById('shakeFruits').addEventListener('click', shakeFruits);
 
       window.addEventListener('pointerdown', (e) => {
         if (!canDrop) return;
