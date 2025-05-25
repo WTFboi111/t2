@@ -10,7 +10,7 @@
       padding: 0;
       overflow: hidden;
       font-family: sans-serif;
-      background: url('https://wallpaper-house.com/data/out/8/wallpaper2you_235377.jpg');
+      background: url('https://wallpaper-house.com/data/out/8/wallpaper2you_235377.jpg ');
       background-size: cover;
     }
     /* Очки в левом верхнем углу без фона */
@@ -65,7 +65,7 @@
       border: 5px solid #8B5A2B;
       box-shadow: 0 0 20px #00000080;
       position: relative;
-      background: url('https://c4.wallpaperflare.com/wallpaper/252/303/689/background-dirt-minecraft-minimalistic-wallpaper-preview.jpg');
+      background: url('https://c4.wallpaperflare.com/wallpaper/252/303/689/background-dirt-minecraft-minimalistic-wallpaper-preview.jpg ');
       background-size: cover;
       margin-top: 80px;
     }
@@ -74,7 +74,7 @@
       bottom: 0;
       width: 100%;
       height: 26%;
-      background-image: url("https://dm0qx8t0i9gc9.cloudfront.net/thumbnails/image/rDtN98Qoishumwih/minecraftpattern-03-091815-742_thumb.jpg");
+      background-image: url("https://dm0qx8t0i9gc9.cloudfront.net/thumbnails/image/rDtN98Qoishumwih/minecraftpattern-03-091815-742_thumb.jpg ");
       background-size: cover;
       background-position: center;
       pointer-events: none;
@@ -165,7 +165,6 @@
   <button id="soundButton">🔇</button>
   <div id="scoreboard">Score: <span id="score">0</span></div>
   <div id="nextFruitPreview"></div>
-  
   <div id="startScreen">
     <h1>ЯМА 2</h1>
     <div id="loadingProgress">
@@ -174,27 +173,23 @@
     <div id="loadingText">Загрузка... 0%</div>
     <button id="startButton" disabled>Наполнить яму</button>
   </div>
-  
   <div id="gameOverScreen">
     <div>Вы переполнили яму!</div>
     <div id="largestFruit" class="fruit-display"></div>
     <button id="restartButton">Заново</button>
   </div>
-  
   <div id="gameWrapper">
     <div id="gameContainer">
       <div id="gameFloor"></div>
     </div>
   </div>
-
   <!-- Добавляем специальные кнопки -->
   <div id="specialButtons">
-    <button id="removeSmallFruits" class="special-button">Удалить мелочь (1)</button>
+    <button id="removeSmallFruits" class="special-button">Убрать мелочь (1)</button>
     <button id="shakeFruits" class="special-button">Встряхнуть</button>
   </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js "></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js "></script>
   <script>
     // Matter.js
     const Engine = Matter.Engine;
@@ -202,20 +197,17 @@
     const Bodies = Matter.Bodies;
     const Body = Matter.Body;
     const Events = Matter.Events;
-
     // Глобальные переменные
     let app, engine, fruits, canDrop, nextFruitIndex;
     let score = 0;
     const baseSize = 25;
     const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.25, i));
     const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
-
     // Переменные для улучшений
     let currentLevelRange = { min: 0, max: 3 }; // Начальный диапазон уровней шаров (1-4)
     let currentRemoveMaxLevel = 3; // Максимальный уровень для удаления мелочи (1-3)
     let removeCharges = 1; // Начальное количество зарядов для удаления мелочи
     const CHARGE_SCORE_INTERVAL = 5000; // Каждые 5000 очков даем заряд
-
     // Аудио переменные
     let audioContext;
     let musicSource;
@@ -227,11 +219,9 @@
     async function initAudio() {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
         const response = await fetch('/assets/t.mp3');
         const arrayBuffer = await response.arrayBuffer();
         backgroundMusicBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
         console.log('Audio initialized');
         audioInitialized = true;
         if (isSoundOn) playMusic();
@@ -242,12 +232,10 @@
 
     function playMusic() {
       if (!audioContext || !backgroundMusicBuffer || !isSoundOn) return;
-      
       try {
         if (musicSource) {
           musicSource.stop();
         }
-        
         musicSource = audioContext.createBufferSource();
         musicSource.buffer = backgroundMusicBuffer;
         musicSource.loop = true;
@@ -268,7 +256,6 @@
     function toggleSound() {
       isSoundOn = !isSoundOn;
       document.getElementById('soundButton').textContent = isSoundOn ? '🔊' : '🔇';
-      
       if (isSoundOn) {
         if (audioContext.state === 'suspended') {
           audioContext.resume().then(() => {
@@ -291,40 +278,35 @@
     }
 
     function updateScore(value) {
+      const previousChargeLevel = Math.floor(score / CHARGE_SCORE_INTERVAL);
       score += value;
       document.getElementById('score').textContent = score;
-      
+
       // Проверяем, нужно ли дать новый заряд для удаления мелочи
-      const newCharges = Math.floor(score / CHARGE_SCORE_INTERVAL) + 1;
-      if (newCharges > removeCharges) {
-        removeCharges = newCharges;
+      const newChargeLevel = Math.floor(score / CHARGE_SCORE_INTERVAL);
+      if (newChargeLevel > previousChargeLevel) {
+        removeCharges++;
         updateRemoveButtonText();
       }
-      
-      // Проверяем, нужно ли улучшить шары или кнопку удаления
+
       checkForUpgrades();
     }
 
     function updateRemoveButtonText() {
       const button = document.getElementById('removeSmallFruits');
-      button.textContent = `Удалить мелочь (${removeCharges})`;
+      button.textContent = `Убрать мелочь (${removeCharges})`;
       button.disabled = removeCharges <= 0;
     }
 
-    // Проверка на улучшения каждые 5000 очков
     function checkForUpgrades() {
       const level = Math.floor(score / 7500);
-      
-      // Улучшаем диапазон выпадающих шаров
       const newMin = Math.min(level, 8); // Максимальный минимальный уровень - 8 (чтобы оставался диапазон)
       const newMax = Math.min(3 + level, 11); // Максимальный уровень - 11 (индексы 0-11)
-      
       if (newMin !== currentLevelRange.min || newMax !== currentLevelRange.max) {
         currentLevelRange = { min: 0, max: newMax };
         console.log(`Улучшены шары: теперь доступны уровни ${currentLevelRange.min+1}-${currentLevelRange.max+1}`);
       }
-      
-      // Улучшаем кнопку удаления мелочи
+
       const newRemoveMax = Math.min(2 + level, 11); // Максимальный уровень - 11
       if (newRemoveMax !== currentRemoveMaxLevel) {
         currentRemoveMaxLevel = newRemoveMax;
@@ -336,6 +318,10 @@
       const size = fruitSizes[sizeIndex];
       const texture = PIXI.Texture.from(`assets/t${sizeIndex + 1}.png`);
       const sprite = new PIXI.Sprite(texture);
+
+      // Добавляем FXAA фильтр для улучшения четкости
+      sprite.filters = [new PIXI.FXAAFilter()];
+
       sprite.anchor.set(0.5);
       sprite.width = size;
       sprite.height = size;
@@ -348,8 +334,8 @@
         friction: 0.001,
       });
       body.fruit = { sprite, sizeIndex };
-
       World.add(engine.world, body);
+
       const fruitObj = { sprite, body, sizeIndex };
       fruits.push(fruitObj);
       return fruitObj;
@@ -385,7 +371,6 @@
     function showNextFruitPreview() {
       const previewContainer = document.getElementById('nextFruitPreview');
       previewContainer.innerHTML = '';
-      
       const size = fruitSizes[nextFruitIndex];
       const img = document.createElement('img');
       img.src = `assets/t${nextFruitIndex + 1}.png`;
@@ -395,34 +380,28 @@
       previewContainer.appendChild(img);
     }
 
-    // Функция для удаления маленьких фруктов (с учетом текущего улучшения)
     function removeSmallFruits() {
       if (removeCharges <= 0) return;
-      
       const smallFruits = fruits.filter(f => f.sizeIndex <= currentRemoveMaxLevel);
       smallFruits.forEach(fruit => {
         World.remove(engine.world, fruit.body);
         app.stage.removeChild(fruit.sprite);
       });
       fruits = fruits.filter(f => f.sizeIndex > currentRemoveMaxLevel);
-      
-      // Уменьшаем количество зарядов
       removeCharges--;
       updateRemoveButtonText();
     }
 
-    // Функция для тряски фруктов (усиленная версия)
     function shakeFruits() {
       fruits.forEach(fruit => {
         const force = {
-          x: (Math.random() - 0.5) * 0.2, // Увеличенная сила встряхивания
-          y: Math.random() * -0.05 // Добавляем немного вертикального движения
+          x: (Math.random() - 0.5) * 0.2,
+          y: Math.random() * -0.05
         };
         Body.applyForce(fruit.body, fruit.body.position, force);
       });
     }
 
-    // Функция для безопасного позиционирования фрукта у границ
     function getSafeDropX(x) {
       const width = app.renderer.width;
       if (x < BORDER_SAFE_MARGIN) {
@@ -438,10 +417,7 @@
       canDrop = true;
       nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
       showNextFruitPreview();
-      
-      // Обновляем текст кнопки удаления
       updateRemoveButtonText();
-      
       if (!audioInitialized) {
         initAudio();
       } else if (isSoundOn) {
@@ -467,14 +443,15 @@
       app = new PIXI.Application({
         width: container.clientWidth,
         height: container.clientHeight,
-        backgroundAlpha: 0
+        backgroundAlpha: 0,
+        antialias: true, // Включаем сглаживание
+        resolution: window.devicePixelRatio || 1, // Учитываем плотность пикселей устройства
+        autoDensity: true // Автоматически корректировать плотность пикселей
       });
       container.appendChild(app.view);
-
       engine = Engine.create();
       engine.gravity.y = 1.2;
       fruits = [];
-
       resizeWalls();
       window.addEventListener('resize', () => {
         app.renderer.resize(container.clientWidth, container.clientHeight);
@@ -501,7 +478,6 @@
           fruit.sprite.y = fruit.body.position.y;
           fruit.sprite.rotation = fruit.body.angle;
         });
-
         const outOfBounds = fruits.filter(f => f.body.position.y < 0);
         if (outOfBounds.length > 0) {
           checkTimer += app.ticker.deltaMS;
@@ -522,29 +498,25 @@
         }
         location.reload();
       });
+
       document.getElementById('soundButton').addEventListener('click', toggleSound);
-      
-      // Добавляем обработчики для специальных кнопок
+
       document.getElementById('removeSmallFruits').addEventListener('click', function(e) {
-        e.stopPropagation(); // Предотвращаем всплытие события
+        e.stopPropagation();
         removeSmallFruits();
       });
-      
+
       document.getElementById('shakeFruits').addEventListener('click', function(e) {
-        e.stopPropagation(); // Предотвращаем всплытие события
+        e.stopPropagation();
         shakeFruits();
       });
 
       window.addEventListener('pointerdown', (e) => {
         if (!canDrop) return;
-        if (e.target.closest('.special-button')) return; // Игнорируем клики по кнопкам
-
+        if (e.target.closest('.special-button')) return;
         const rect = app.view.getBoundingClientRect();
         let x = e.clientX - rect.left;
-        
-        // Корректируем позицию для безопасного спавна
         x = getSafeDropX(x);
-        
         createFruit(x, 0, nextFruitIndex);
         canDrop = false;
         setTimeout(() => canDrop = true, 300);
@@ -553,22 +525,18 @@
       });
     }
 
-    // Загрузка ассетов
     function loadAssets() {
       const totalAssets = 12;
       let loadedAssets = 0;
-
       function updateProgress() {
         loadedAssets++;
         const progress = Math.round((loadedAssets / totalAssets) * 100);
         document.getElementById('loadingBar').style.width = `${progress}%`;
         document.getElementById('loadingText').textContent = `Загрузка... ${progress}%`;
-
         if (loadedAssets === totalAssets) {
           document.getElementById('startButton').disabled = false;
         }
       }
-
       for (let i = 1; i <= totalAssets; i++) {
         const img = new Image();
         img.src = `assets/t${i}.png`;
