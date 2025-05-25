@@ -294,14 +294,14 @@
 
     // Проверка на улучшения каждые 5000 очков
     function checkForUpgrades() {
-      const level = Math.floor(score / 6000);
+      const level = Math.floor(score / 7500);
       
       // Улучшаем диапазон выпадающих шаров
       const newMin = Math.min(level, 8); // Максимальный минимальный уровень - 8 (чтобы оставался диапазон)
       const newMax = Math.min(3 + level, 11); // Максимальный уровень - 11 (индексы 0-11)
       
       if (newMin !== currentLevelRange.min || newMax !== currentLevelRange.max) {
-        currentLevelRange = { min: newMin, max: newMax };
+        currentLevelRange = { min: 0, max: newMax };
         console.log(`Улучшены шары: теперь доступны уровни ${currentLevelRange.min+1}-${currentLevelRange.max+1}`);
       }
       
