@@ -202,8 +202,8 @@
     // Глобальные переменные
     let app, engine, fruits, canDrop, nextFruitIndex;
     let score = 0;
-    const baseSize = 25;
-    const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.255, i));
+    const baseSize = 24;
+    const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.24, i));
     const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
 
     // Переменные для улучшений
@@ -310,7 +310,7 @@
       if (newRemoveMax !== currentRemoveMaxLevel) {
         currentRemoveMaxLevel = newRemoveMax;
         document.getElementById('removeSmallFruits').textContent = 
-          `Удалить мелочь (1-${currentRemoveMaxLevel+1})`;
+          `Удалить мелочь`;
         console.log(`Улучшена кнопка удаления: теперь удаляет уровни 1-${currentRemoveMaxLevel+1}`);
       }
     }
