@@ -202,7 +202,7 @@
     // Глобальные переменные
     let app, engine, fruits, canDrop, nextFruitIndex;
     let score = 0;
-    const baseSize = 24;
+    const baseSize = 25;
     const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.24, i));
     const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
 
@@ -294,7 +294,7 @@
 
     // Проверка на улучшения каждые 5000 очков
     function checkForUpgrades() {
-      const level = Math.floor(score / 5000);
+      const level = Math.floor(score / 6000);
       
       // Улучшаем диапазон выпадающих шаров
       const newMin = Math.min(level, 8); // Максимальный минимальный уровень - 8 (чтобы оставался диапазон)
