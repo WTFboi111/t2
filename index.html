@@ -417,7 +417,7 @@
       fruits.forEach(fruit => {
         const force = {
           x: (Math.random() - 0.5) * 0.2, // Увеличенная сила встряхивания
-          y: Math.random() * -0.05 // Добавляем немного вертикального движения
+          y: 0 // Добавляем немного вертикального движения
         };
         Body.applyForce(fruit.body, fruit.body.position, force);
       });
