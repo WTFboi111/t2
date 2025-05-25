@@ -155,6 +155,10 @@
     .special-button:hover {
       background: #A67C52; /* Светло-коричневый при наведении */
     }
+    .special-button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -185,7 +189,7 @@
 
   <!-- Добавляем специальные кнопки -->
   <div id="specialButtons">
-    <button id="removeSmallFruits" class="special-button">Удалить мелочь</button>
+    <button id="removeSmallFruits" class="special-button">Удалить мелочь (1)</button>
     <button id="shakeFruits" class="special-button">Встряхнуть</button>
   </div>
 
@@ -209,6 +213,8 @@
     // Переменные для улучшений
     let currentLevelRange = { min: 0, max: 3 }; // Начальный диапазон уровней шаров (1-4)
     let currentRemoveMaxLevel = 3; // Максимальный уровень для удаления мелочи (1-3)
+    let removeCharges = 1; // Начальное количество зарядов для удаления мелочи
+    const CHARGE_SCORE_INTERVAL = 5000; // Каждые 5000 очков даем заряд
 
     // Аудио переменные
     let audioContext;
@@ -288,8 +294,21 @@
       score += value;
       document.getElementById('score').textContent = score;
       
+      // Проверяем, нужно ли дать новый заряд для удаления мелочи
+      const newCharges = Math.floor(score / CHARGE_SCORE_INTERVAL) + 1;
+      if (newCharges > removeCharges) {
+        removeCharges = newCharges;
+        updateRemoveButtonText();
+      }
+      
       // Проверяем, нужно ли улучшить шары или кнопку удаления
       checkForUpgrades();
+    }
+
+    function updateRemoveButtonText() {
+      const button = document.getElementById('removeSmallFruits');
+      button.textContent = `Удалить мелочь (${removeCharges})`;
+      button.disabled = removeCharges <= 0;
     }
 
     // Проверка на улучшения каждые 5000 очков
@@ -309,8 +328,6 @@
       const newRemoveMax = Math.min(2 + level, 11); // Максимальный уровень - 11
       if (newRemoveMax !== currentRemoveMaxLevel) {
         currentRemoveMaxLevel = newRemoveMax;
-        document.getElementById('removeSmallFruits').textContent = 
-          `Удалить мелочь`;
         console.log(`Улучшена кнопка удаления: теперь удаляет уровни 1-${currentRemoveMaxLevel+1}`);
       }
     }
@@ -380,20 +397,26 @@
 
     // Функция для удаления маленьких фруктов (с учетом текущего улучшения)
     function removeSmallFruits() {
+      if (removeCharges <= 0) return;
+      
       const smallFruits = fruits.filter(f => f.sizeIndex <= currentRemoveMaxLevel);
       smallFruits.forEach(fruit => {
         World.remove(engine.world, fruit.body);
         app.stage.removeChild(fruit.sprite);
       });
       fruits = fruits.filter(f => f.sizeIndex > currentRemoveMaxLevel);
+      
+      // Уменьшаем количество зарядов
+      removeCharges--;
+      updateRemoveButtonText();
     }
 
-    // Функция для тряски фруктов (только горизонтальное движение)
+    // Функция для тряски фруктов (усиленная версия)
     function shakeFruits() {
       fruits.forEach(fruit => {
         const force = {
-          x: (Math.random() - 0.5) * 0.05,
-          y: 0 // Нет вертикального движения
+          x: (Math.random() - 0.5) * 0.2, // Увеличенная сила встряхивания
+          y: Math.random() * -0.05 // Добавляем немного вертикального движения
         };
         Body.applyForce(fruit.body, fruit.body.position, force);
       });
@@ -415,6 +438,9 @@
       canDrop = true;
       nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
       showNextFruitPreview();
+      
+      // Обновляем текст кнопки удаления
+      updateRemoveButtonText();
       
       if (!audioInitialized) {
         initAudio();
