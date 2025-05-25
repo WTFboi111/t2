@@ -185,7 +185,7 @@
 
   <!-- Добавляем специальные кнопки -->
   <div id="specialButtons">
-    <button id="removeSmallFruits" class="special-button">Удалить мелочь</button>
+    <button id="removeSmallFruits" class="special-button">Удалить мелочь (1-3)</button>
     <button id="shakeFruits" class="special-button">Встряхнуть</button>
   </div>
 
@@ -205,6 +205,10 @@
     const baseSize = 25;
     const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.255, i));
     const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
+
+    // Переменные для улучшений
+    let currentLevelRange = { min: 0, max: 3 }; // Начальный диапазон уровней шаров (1-4)
+    let currentRemoveMaxLevel = 3; // Максимальный уровень для удаления мелочи (1-3)
 
     // Аудио переменные
     let audioContext;
@@ -283,6 +287,32 @@
     function updateScore(value) {
       score += value;
       document.getElementById('score').textContent = score;
+      
+      // Проверяем, нужно ли улучшить шары или кнопку удаления
+      checkForUpgrades();
+    }
+
+    // Проверка на улучшения каждые 5000 очков
+    function checkForUpgrades() {
+      const level = Math.floor(score / 5000);
+      
+      // Улучшаем диапазон выпадающих шаров
+      const newMin = Math.min(level, 8); // Максимальный минимальный уровень - 8 (чтобы оставался диапазон)
+      const newMax = Math.min(3 + level, 11); // Максимальный уровень - 11 (индексы 0-11)
+      
+      if (newMin !== currentLevelRange.min || newMax !== currentLevelRange.max) {
+        currentLevelRange = { min: newMin, max: newMax };
+        console.log(`Улучшены шары: теперь доступны уровни ${currentLevelRange.min+1}-${currentLevelRange.max+1}`);
+      }
+      
+      // Улучшаем кнопку удаления мелочи
+      const newRemoveMax = Math.min(3 + level, 11); // Максимальный уровень - 11
+      if (newRemoveMax !== currentRemoveMaxLevel) {
+        currentRemoveMaxLevel = newRemoveMax;
+        document.getElementById('removeSmallFruits').textContent = 
+          `Удалить мелочь (1-${currentRemoveMaxLevel+1})`;
+        console.log(`Улучшена кнопка удаления: теперь удаляет уровни 1-${currentRemoveMaxLevel+1}`);
+      }
     }
 
     function createFruit(x, y, sizeIndex) {
@@ -348,14 +378,14 @@
       previewContainer.appendChild(img);
     }
 
-    // Функция для удаления маленьких фруктов (1-3 уровень)
+    // Функция для удаления маленьких фруктов (с учетом текущего улучшения)
     function removeSmallFruits() {
-      const smallFruits = fruits.filter(f => f.sizeIndex < 3);
+      const smallFruits = fruits.filter(f => f.sizeIndex <= currentRemoveMaxLevel);
       smallFruits.forEach(fruit => {
         World.remove(engine.world, fruit.body);
         app.stage.removeChild(fruit.sprite);
       });
-      fruits = fruits.filter(f => f.sizeIndex >= 3);
+      fruits = fruits.filter(f => f.sizeIndex > currentRemoveMaxLevel);
     }
 
     // Функция для тряски фруктов (только горизонтальное движение)
@@ -383,7 +413,7 @@
     function startGame() {
       document.getElementById('startScreen').style.display = 'none';
       canDrop = true;
-      nextFruitIndex = Math.floor(Math.random() * 4);
+      nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
       showNextFruitPreview();
       
       if (!audioInitialized) {
@@ -492,7 +522,7 @@
         createFruit(x, 0, nextFruitIndex);
         canDrop = false;
         setTimeout(() => canDrop = true, 300);
-        nextFruitIndex = Math.floor(Math.random() * 4);
+        nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
         showNextFruitPreview();
       });
     }
