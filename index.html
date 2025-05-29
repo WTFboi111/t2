@@ -444,9 +444,12 @@
 
     function getRandomFruitIndex() {
       if (!isInfiniteMode) {
-        return Math.floor(Math.random() * STANDARD_FRUITS);
+        // В обычном режиме - только первые 4 фрукта (индексы 0-3)
+        return Math.floor(Math.random() * 4);
       }
-      return Math.floor(Math.random() * FRUIT_RANGE_SIZE) + currentFruitRange.min;
+      // В бесконечном режиме - первые 4 фрукта из текущего диапазона
+      const rangeSize = Math.min(4, currentFruitRange.max - currentFruitRange.min + 1);
+      return currentFruitRange.min + Math.floor(Math.random() * rangeSize);
     }
 
     function removeSmallFruits() {
