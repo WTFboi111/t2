@@ -13,7 +13,6 @@
       background: url('https://wallpaper-house.com/data/out/8/wallpaper2you_235377.jpg');
       background-size: cover;
     }
-    /* Очки в левом верхнем углу без фона */
     #scoreboard {
       position: absolute;
       top: 10px;
@@ -24,7 +23,6 @@
       text-shadow: 1px 1px 3px black;
       z-index: 3;
     }
-    /* Превью фрукта над игровым контейнером без фона */
     #nextFruitPreview {
       position: absolute;
       top: 20px;
@@ -106,7 +104,7 @@
       background: #4CAF50;
       transition: width 0.3s;
     }
-    #startButton, #restartButton {
+    #startButton, #restartButton, #infiniteModeButton {
       margin-top: 20px;
       padding: 10px 20px;
       font-size: 18px;
@@ -115,8 +113,16 @@
       border: none;
       border-radius: 5px;
       cursor: pointer;
+      display: block;
+      width: 200px;
+      margin-left: auto;
+      margin-right: auto;
     }
-    #startButton:disabled {
+    #infiniteModeButton {
+      background: #2196F3;
+      margin-top: 10px;
+    }
+    #startButton:disabled, #infiniteModeButton:disabled {
       background: #cccccc;
       cursor: not-allowed;
     }
@@ -132,7 +138,6 @@
       cursor: pointer;
       z-index: 10;
     }
-    /* Стили для специальных кнопок */
     #specialButtons {
       position: absolute;
       bottom: 20px;
@@ -145,7 +150,7 @@
     .special-button {
       padding: 10px 20px;
       font-size: 16px;
-      background: #8B5A2B; /* Коричневый цвет */
+      background: #8B5A2B;
       color: white;
       border: none;
       border-radius: 5px;
@@ -153,7 +158,7 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     .special-button:hover {
-      background: #A67C52; /* Светло-коричневый при наведении */
+      background: #A67C52;
     }
     .special-button:disabled {
       background: #cccccc;
@@ -173,6 +178,7 @@
     </div>
     <div id="loadingText">Загрузка... 0%</div>
     <button id="startButton" disabled>Наполнить яму</button>
+    <button id="infiniteModeButton" disabled>Вечная игра</button>
   </div>
   
   <div id="gameOverScreen">
@@ -187,7 +193,6 @@
     </div>
   </div>
 
-  <!-- Добавляем специальные кнопки -->
   <div id="specialButtons">
     <button id="removeSmallFruits" class="special-button">Убрать мелочь (1)</button>
     <button id="shakeFruits" class="special-button">Встряхнуть</button>
@@ -207,15 +212,23 @@
     let app, engine, fruits, canDrop, nextFruitIndex;
     let score = 0;
     const baseSize = 25;
-    const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.255, i));
-    const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
+    const STANDARD_FRUITS = 12;
+    const EXTRA_FRUITS = 4;
+    const TOTAL_FRUITS = STANDARD_FRUITS + EXTRA_FRUITS;
+    const FRUIT_RANGE_SIZE = 10;
+    const fruitSizes = Array.from({ length: TOTAL_FRUITS }, (_, i) => baseSize * Math.pow(1.255, i));
+    const BORDER_SAFE_MARGIN = 30;
 
     // Переменные для улучшений
-    let currentLevelRange = { min: 0, max: 3 }; // Начальный диапазон уровней шаров (1-4)
-    let currentRemoveMaxLevel = 3; // Максимальный уровень для удаления мелочи (1-3)
-    let removeCharges = 1; // Начальное количество зарядов для удаления мелочи
-    const CHARGE_SCORE_INTERVAL = 5000; // Каждые 5000 очков даем заряд
-    let lastChargeScore = 0; // Очки при последнем получении заряда
+    let currentLevelRange = { min: 0, max: 3 };
+    let currentRemoveMaxLevel = 3;
+    let removeCharges = 1;
+    const CHARGE_SCORE_INTERVAL = 5000;
+    let lastChargeScore = 0;
+
+    // Режимы игры
+    let isInfiniteMode = false;
+    let currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
 
     // Аудио переменные
     let audioContext;
@@ -295,14 +308,12 @@
       score += value;
       document.getElementById('score').textContent = score;
       
-      // Проверяем, нужно ли дать новый заряд для удаления мелочи
       if (score >= lastChargeScore + CHARGE_SCORE_INTERVAL) {
         removeCharges++;
         lastChargeScore = score;
         updateRemoveButtonText();
       }
       
-      // Проверяем, нужно ли улучшить шары или кнопку удаления
       checkForUpgrades();
     }
 
@@ -312,30 +323,32 @@
       button.disabled = removeCharges <= 0;
     }
 
-    // Проверка на улучшения каждые 5000 очков
     function checkForUpgrades() {
       const level = Math.floor(score / 7500);
       
-      // Улучшаем диапазон выпадающих шаров
-      const newMin = Math.min(level, 8); // Максимальный минимальный уровень - 8 (чтобы оставался диапазон)
-      const newMax = Math.min(3 + level, 11); // Максимальный уровень - 11 (индексы 0-11)
+      const newMin = Math.min(level, 8);
+      const newMax = Math.min(3 + level, 11);
       
       if (newMin !== currentLevelRange.min || newMax !== currentLevelRange.max) {
         currentLevelRange = { min: 0, max: newMax };
-        console.log(`Улучшены шары: теперь доступны уровни ${currentLevelRange.min+1}-${currentLevelRange.max+1}`);
       }
       
-      // Улучшаем кнопку удаления мелочи
-      const newRemoveMax = Math.min(2 + level, 11); // Максимальный уровень - 11
+      const newRemoveMax = Math.min(2 + level, 11);
       if (newRemoveMax !== currentRemoveMaxLevel) {
         currentRemoveMaxLevel = newRemoveMax;
-        console.log(`Улучшена кнопка удаления: теперь удаляет уровни 1-${currentRemoveMaxLevel+1}`);
       }
     }
 
     function createFruit(x, y, sizeIndex) {
+      let textureName;
+      if (sizeIndex < EXTRA_FRUITS) {
+        textureName = `t0${sizeIndex + 1}.png`;
+      } else {
+        textureName = `t${sizeIndex - EXTRA_FRUITS + 1}.png`;
+      }
+
       const size = fruitSizes[sizeIndex];
-      const texture = PIXI.Texture.from(`assets/t${sizeIndex + 1}.png`);
+      const texture = PIXI.Texture.from(`assets/${textureName}`);
       const sprite = new PIXI.Sprite(texture);
       sprite.anchor.set(0.5);
       sprite.width = size;
@@ -356,6 +369,16 @@
       return fruitObj;
     }
 
+    function updateFruitTexture(fruit) {
+      let textureName;
+      if (fruit.sizeIndex < EXTRA_FRUITS) {
+        textureName = `t0${fruit.sizeIndex + 1}.png`;
+      } else {
+        textureName = `t${fruit.sizeIndex - EXTRA_FRUITS + 1}.png`;
+      }
+      fruit.sprite.texture = PIXI.Texture.from(`assets/${textureName}`);
+    }
+
     function resizeWalls() {
       const w = app.renderer.width;
       const h = app.renderer.height;
@@ -369,8 +392,25 @@
 
     function mergeFruits(f1, f2) {
       if (!f1 || !f2) return;
-      if (f1.sizeIndex >= fruitSizes.length - 1) return;
-      const newIndex = f1.sizeIndex + 1;
+      
+      let newIndex = f1.sizeIndex + 1;
+      
+      if (isInfiniteMode) {
+        if (newIndex > currentFruitRange.max) {
+          currentFruitRange.min = (currentFruitRange.min + 1) % TOTAL_FRUITS;
+          currentFruitRange.max = (currentFruitRange.max + 1) % TOTAL_FRUITS;
+          
+          fruits.forEach(fruit => {
+            fruit.sizeIndex = (fruit.sizeIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
+            updateFruitTexture(fruit);
+          });
+          
+          newIndex = (newIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
+        }
+      } else {
+        if (newIndex >= STANDARD_FRUITS) return;
+      }
+      
       const newX = (f1.body.position.x + f2.body.position.x) / 2;
       const newY = (f1.body.position.y + f2.body.position.y) / 2;
       World.remove(engine.world, f1.body);
@@ -387,16 +427,28 @@
       const previewContainer = document.getElementById('nextFruitPreview');
       previewContainer.innerHTML = '';
       
-      const size = fruitSizes[nextFruitIndex];
+      let imgName;
+      if (nextFruitIndex < EXTRA_FRUITS) {
+        imgName = `t0${nextFruitIndex + 1}.png`;
+      } else {
+        imgName = `t${nextFruitIndex - EXTRA_FRUITS + 1}.png`;
+      }
+      
       const img = document.createElement('img');
-      img.src = `assets/t${nextFruitIndex + 1}.png`;
+      img.src = `assets/${imgName}`;
       img.style.width = '100%';
       img.style.height = '100%';
       img.style.objectFit = 'contain';
       previewContainer.appendChild(img);
     }
 
-    // Функция для удаления маленьких фруктов (с учетом текущего улучшения)
+    function getRandomFruitIndex() {
+      if (!isInfiniteMode) {
+        return Math.floor(Math.random() * STANDARD_FRUITS);
+      }
+      return Math.floor(Math.random() * FRUIT_RANGE_SIZE) + currentFruitRange.min;
+    }
+
     function removeSmallFruits() {
       if (removeCharges <= 0) return;
       
@@ -407,23 +459,20 @@
       });
       fruits = fruits.filter(f => f.sizeIndex > currentRemoveMaxLevel);
       
-      // Уменьшаем количество зарядов
       removeCharges--;
       updateRemoveButtonText();
     }
 
-    // Функция для тряски фруктов (усиленная версия)
     function shakeFruits() {
       fruits.forEach(fruit => {
         const force = {
-          x: (Math.random() - 0.5) * 0.1, // Увеличенная сила встряхивания
-          y: 0 // Добавляем немного вертикального движения
+          x: (Math.random() - 0.5) * 0.05,
+          y: 0
         };
         Body.applyForce(fruit.body, fruit.body.position, force);
       });
     }
 
-    // Функция для безопасного позиционирования фрукта у границ
     function getSafeDropX(x) {
       const width = app.renderer.width;
       if (x < BORDER_SAFE_MARGIN) {
@@ -434,13 +483,27 @@
       return x;
     }
 
-    function startGame() {
+    function startGame(infiniteMode = false) {
+      isInfiniteMode = infiniteMode;
       document.getElementById('startScreen').style.display = 'none';
       canDrop = true;
-      nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
-      showNextFruitPreview();
       
-      // Обновляем текст кнопки удаления
+      if (isInfiniteMode) {
+        const container = document.getElementById('gameContainer');
+        const centerX = container.clientWidth / 2;
+        
+        for (let i = 0; i < 3; i++) {
+          const x = centerX - 100 + (i * 70);
+          createFruit(x, container.clientHeight * 0.7 - (i * 20), i);
+        }
+        
+        currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
+      } else {
+        currentFruitRange = { min: 0, max: STANDARD_FRUITS - 1 };
+      }
+      
+      nextFruitIndex = getRandomFruitIndex();
+      showNextFruitPreview();
       updateRemoveButtonText();
       
       if (!audioInitialized) {
@@ -456,7 +519,11 @@
         const largest = fruits.reduce((a, b) => (a.sizeIndex > b.sizeIndex ? a : b), fruits[0]);
         if (largest) {
           const div = document.getElementById('largestFruit');
-          div.style.backgroundImage = `url(assets/t${largest.sizeIndex + 1}.png)`;
+          if (largest.sizeIndex < EXTRA_FRUITS) {
+            div.style.backgroundImage = `url(assets/t0${largest.sizeIndex + 1}.png)`;
+          } else {
+            div.style.backgroundImage = `url(assets/t${largest.sizeIndex - EXTRA_FRUITS + 1}.png)`;
+          }
         }
       }
       canDrop = false;
@@ -515,7 +582,8 @@
       });
 
       document.getElementById('startScreen').style.display = 'block';
-      document.getElementById('startButton').addEventListener('click', startGame);
+      document.getElementById('startButton').addEventListener('click', () => startGame(false));
+      document.getElementById('infiniteModeButton').addEventListener('click', () => startGame(true));
       document.getElementById('restartButton').addEventListener('click', function() {
         if (isSoundOn) {
           stopMusic();
@@ -525,52 +593,57 @@
       });
       document.getElementById('soundButton').addEventListener('click', toggleSound);
       
-      // Добавляем обработчики для специальных кнопок
       document.getElementById('removeSmallFruits').addEventListener('click', function(e) {
-        e.stopPropagation(); // Предотвращаем всплытие события
+        e.stopPropagation();
         removeSmallFruits();
       });
       
       document.getElementById('shakeFruits').addEventListener('click', function(e) {
-        e.stopPropagation(); // Предотвращаем всплытие события
+        e.stopPropagation();
         shakeFruits();
       });
 
       window.addEventListener('pointerdown', (e) => {
         if (!canDrop) return;
-        if (e.target.closest('.special-button')) return; // Игнорируем клики по кнопкам
+        if (e.target.closest('.special-button')) return;
 
         const rect = app.view.getBoundingClientRect();
         let x = e.clientX - rect.left;
-        
-        // Корректируем позицию для безопасного спавна
         x = getSafeDropX(x);
         
         createFruit(x, 0, nextFruitIndex);
         canDrop = false;
         setTimeout(() => canDrop = true, 300);
-        nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
+        nextFruitIndex = getRandomFruitIndex();
         showNextFruitPreview();
       });
     }
 
-    // Загрузка ассетов
     function loadAssets() {
-      const totalAssets = 12;
+      const totalStandardAssets = 12;
+      const totalExtraAssets = 4;
       let loadedAssets = 0;
 
       function updateProgress() {
         loadedAssets++;
-        const progress = Math.round((loadedAssets / totalAssets) * 100);
+        const progress = Math.round((loadedAssets / (totalStandardAssets + totalExtraAssets)) * 100);
         document.getElementById('loadingBar').style.width = `${progress}%`;
         document.getElementById('loadingText').textContent = `Загрузка... ${progress}%`;
 
-        if (loadedAssets === totalAssets) {
+        if (loadedAssets === totalStandardAssets + totalExtraAssets) {
           document.getElementById('startButton').disabled = false;
+          document.getElementById('infiniteModeButton').disabled = false;
         }
       }
 
-      for (let i = 1; i <= totalAssets; i++) {
+      for (let i = 1; i <= totalExtraAssets; i++) {
+        const img = new Image();
+        img.src = `assets/t0${i}.png`;
+        img.onload = updateProgress;
+        img.onerror = updateProgress;
+      }
+
+      for (let i = 1; i <= totalStandardAssets; i++) {
         const img = new Image();
         img.src = `assets/t${i}.png`;
         img.onload = updateProgress;
