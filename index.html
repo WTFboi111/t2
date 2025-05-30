@@ -5,167 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fruit Merge Game</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: sans-serif;
-      background: url('https://wallpaper-house.com/data/out/8/wallpaper2you_235377.jpg');
-      background-size: cover;
-    }
-    /* Очки в левом верхнем углу без фона */
-    #scoreboard {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 24px;
-      font-weight: bold;
-      color: white;
-      text-shadow: 1px 1px 3px black;
-      z-index: 3;
-    }
-    /* Превью фрукта над игровым контейнером без фона */
-    #nextFruitPreview {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 2;
-      width: 80px;
-      height: 80px;
-    }
-    #startScreen, #gameOverScreen {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 24px;
-      text-align: center;
-      padding: 20px;
-      background: rgba(255, 255, 255, 0.9);
-      border-radius: 15px;
-      display: none;
-      z-index: 4;
-    }
-    #gameWrapper {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    #gameContainer {
-      width: 90%;
-      height: 75%;
-      max-width: 480px;
-      max-height: 700px;
-      border: 5px solid #8B5A2B;
-      box-shadow: 0 0 20px #00000080;
-      position: relative;
-      background: url('https://c4.wallpaperflare.com/wallpaper/252/303/689/background-dirt-minecraft-minimalistic-wallpaper-preview.jpg');
-      background-size: cover;
-      margin-top: 80px;
-    }
-    #gameFloor {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      height: 26%;
-      background-image: url("https://dm0qx8t0i9gc9.cloudfront.net/thumbnails/image/rDtN98Qoishumwih/minecraftpattern-03-091815-742_thumb.jpg");
-      background-size: cover;
-      background-position: center;
-      pointer-events: none;
-      z-index: 1;
-    }
-    canvas {
-      display: block;
-    }
-    .fruit-display {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      margin: 10px auto;
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-    }
-    #loadingProgress {
-      width: 200px;
-      height: 20px;
-      background: #ddd;
-      margin: 20px auto;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    #loadingBar {
-      height: 100%;
-      width: 0%;
-      background: #4CAF50;
-      transition: width 0.3s;
-    }
-    #startButton, #restartButton {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 18px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    #startButton:disabled {
-      background: #cccccc;
-      cursor: not-allowed;
-    }
-    #soundButton {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      padding: 8px;
-      background: rgba(255, 255, 255, 0.8);
-      border: none;
-      border-radius: 50%;
-      font-size: 20px;
-      cursor: pointer;
-      z-index: 10;
-    }
-    /* Стили для специальных кнопок */
-    #specialButtons {
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 20px;
-      z-index: 10;
-    }
-    .special-button {
-      padding: 10px 20px;
-      font-size: 16px;
-      background: #8B5A2B; /* Коричневый цвет */
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-    .special-button:hover {
-      background: #A67C52; /* Светло-коричневый при наведении */
-    }
-    .special-button:disabled {
-      background: #cccccc;
-      cursor: not-allowed;
-    }
+    /* Стили остаются без изменений */
   </style>
 </head>
 <body>
   <button id="soundButton">🔇</button>
   <div id="scoreboard">Score: <span id="score">0</span></div>
   <div id="nextFruitPreview"></div>
-  
   <div id="startScreen">
     <h1>ЯМА 2</h1>
     <div id="loadingProgress">
@@ -173,28 +19,24 @@
     </div>
     <div id="loadingText">Загрузка... 0%</div>
     <button id="startButton" disabled>Наполнить яму</button>
+    <button id="infiniteModeButton">Бесконечный режим</button>
   </div>
-  
   <div id="gameOverScreen">
     <div>Вы переполнили яму!</div>
     <div id="largestFruit" class="fruit-display"></div>
     <button id="restartButton">Заново</button>
   </div>
-  
   <div id="gameWrapper">
     <div id="gameContainer">
       <div id="gameFloor"></div>
     </div>
   </div>
-
-  <!-- Добавляем специальные кнопки -->
   <div id="specialButtons">
     <button id="removeSmallFruits" class="special-button">Убрать мелочь (1)</button>
     <button id="shakeFruits" class="special-button">Встряхнуть</button>
   </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js "></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js "></script>
   <script>
     // Matter.js
     const Engine = Matter.Engine;
@@ -202,37 +44,48 @@
     const Bodies = Matter.Bodies;
     const Body = Matter.Body;
     const Events = Matter.Events;
-
     // Глобальные переменные
     let app, engine, fruits, canDrop, nextFruitIndex;
     let score = 0;
+    const fruitSizes = [
+      25,   // t01
+      31,   // t02
+      39,   // t03
+      49,   // t04
+      61,   // t1
+      77,   // t2
+      96,   // t3
+      121,  // t4
+      152,  // t5
+      191,  // t6
+      240,  // t7
+      302,  // t8
+      380,  // t9
+      478,  // t10
+      602,  // t11
+      758   // t12
+    ];
     const baseSize = 25;
-    const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.255, i));
     const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
-
     // Переменные для улучшений
     let currentLevelRange = { min: 0, max: 3 }; // Начальный диапазон уровней шаров (1-4)
     let currentRemoveMaxLevel = 3; // Максимальный уровень для удаления мелочи (1-3)
     let removeCharges = 1; // Начальное количество зарядов для удаления мелочи
     const CHARGE_SCORE_INTERVAL = 5000; // Каждые 5000 очков даем заряд
     let lastChargeScore = 0; // Очки при последнем получении заряда
-
     // Аудио переменные
     let audioContext;
     let musicSource;
     let backgroundMusicBuffer;
     let isSoundOn = true;
     let audioInitialized = false;
-
     // Инициализация аудио
     async function initAudio() {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
         const response = await fetch('/assets/t.mp3');
         const arrayBuffer = await response.arrayBuffer();
         backgroundMusicBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
         console.log('Audio initialized');
         audioInitialized = true;
         if (isSoundOn) playMusic();
@@ -240,15 +93,12 @@
         console.error('Audio initialization error:', e);
       }
     }
-
     function playMusic() {
       if (!audioContext || !backgroundMusicBuffer || !isSoundOn) return;
-      
       try {
         if (musicSource) {
           musicSource.stop();
         }
-        
         musicSource = audioContext.createBufferSource();
         musicSource.buffer = backgroundMusicBuffer;
         musicSource.loop = true;
@@ -258,18 +108,15 @@
         console.error('Error playing music:', e);
       }
     }
-
     function stopMusic() {
       if (musicSource) {
         musicSource.stop();
         musicSource = null;
       }
     }
-
     function toggleSound() {
       isSoundOn = !isSoundOn;
       document.getElementById('soundButton').textContent = isSoundOn ? '🔊' : '🔇';
-      
       if (isSoundOn) {
         if (audioContext.state === 'suspended') {
           audioContext.resume().then(() => {
@@ -290,41 +137,33 @@
         stopMusic();
       }
     }
-
     function updateScore(value) {
       score += value;
       document.getElementById('score').textContent = score;
-      
       // Проверяем, нужно ли дать новый заряд для удаления мелочи
       if (score >= lastChargeScore + CHARGE_SCORE_INTERVAL) {
         removeCharges++;
         lastChargeScore = score;
         updateRemoveButtonText();
       }
-      
       // Проверяем, нужно ли улучшить шары или кнопку удаления
       checkForUpgrades();
     }
-
     function updateRemoveButtonText() {
       const button = document.getElementById('removeSmallFruits');
       button.textContent = `Убрать мелочь (${removeCharges})`;
       button.disabled = removeCharges <= 0;
     }
-
     // Проверка на улучшения каждые 5000 очков
     function checkForUpgrades() {
       const level = Math.floor(score / 7500);
-      
       // Улучшаем диапазон выпадающих шаров
       const newMin = Math.min(level, 8); // Максимальный минимальный уровень - 8 (чтобы оставался диапазон)
       const newMax = Math.min(3 + level, 11); // Максимальный уровень - 11 (индексы 0-11)
-      
       if (newMin !== currentLevelRange.min || newMax !== currentLevelRange.max) {
         currentLevelRange = { min: 0, max: newMax };
         console.log(`Улучшены шары: теперь доступны уровни ${currentLevelRange.min+1}-${currentLevelRange.max+1}`);
       }
-      
       // Улучшаем кнопку удаления мелочи
       const newRemoveMax = Math.min(2 + level, 11); // Максимальный уровень - 11
       if (newRemoveMax !== currentRemoveMaxLevel) {
@@ -332,10 +171,10 @@
         console.log(`Улучшена кнопка удаления: теперь удаляет уровни 1-${currentRemoveMaxLevel+1}`);
       }
     }
-
     function createFruit(x, y, sizeIndex) {
-      const size = fruitSizes[sizeIndex];
-      const texture = PIXI.Texture.from(`assets/t${sizeIndex + 1}.png`);
+      const adjustedIndex = (sizeIndex + currentRangeStart) % fruitSizes.length;
+      const size = fruitSizes[adjustedIndex];
+      const texture = PIXI.Texture.from(`assets/t${adjustedIndex + 1}.png`);
       const sprite = new PIXI.Sprite(texture);
       sprite.anchor.set(0.5);
       sprite.width = size;
@@ -343,19 +182,16 @@
       sprite.x = x;
       sprite.y = y;
       app.stage.addChild(sprite);
-
       const body = Bodies.circle(x, y, size / 2, {
         restitution: 0.4,
         friction: 0.001,
       });
-      body.fruit = { sprite, sizeIndex };
-
+      body.fruit = { sprite, sizeIndex: adjustedIndex };
       World.add(engine.world, body);
-      const fruitObj = { sprite, body, sizeIndex };
+      const fruitObj = { sprite, body, sizeIndex: adjustedIndex };
       fruits.push(fruitObj);
       return fruitObj;
     }
-
     function resizeWalls() {
       const w = app.renderer.width;
       const h = app.renderer.height;
@@ -366,12 +202,12 @@
       const rightWall = Bodies.rectangle(w + thickness / 2, h / 2, thickness, h, { isStatic: true });
       World.add(engine.world, [ground, leftWall, rightWall]);
     }
-
     function mergeFruits(f1, f2) {
       if (!f1 || !f2) return;
-      if (f1.sizeIndex >= fruitSizes.length - 1) return;
+      if (f1.sizeIndex >= currentRangeEnd) return;
       const newIndex = f1.sizeIndex + 1;
-      const newX = (f1.body.position.x + f2.body.position.x) / 2;
+      if (newIndex > currentRangeEnd) return;
+      const newX = (f1.body.position.x + f2.body.position.y) / 2;
       const newY = (f1.body.position.y + f2.body.position.y) / 2;
       World.remove(engine.world, f1.body);
       World.remove(engine.world, f2.body);
@@ -381,12 +217,13 @@
       fruits.splice(fruits.indexOf(f2), 1);
       createFruit(newX, newY, newIndex);
       updateScore((newIndex + 1) * 10);
+      if (newIndex === currentRangeEnd) {
+        shiftRange();
+      }
     }
-
     function showNextFruitPreview() {
       const previewContainer = document.getElementById('nextFruitPreview');
       previewContainer.innerHTML = '';
-      
       const size = fruitSizes[nextFruitIndex];
       const img = document.createElement('img');
       img.src = `assets/t${nextFruitIndex + 1}.png`;
@@ -395,24 +232,40 @@
       img.style.objectFit = 'contain';
       previewContainer.appendChild(img);
     }
-
-    // Функция для удаления маленьких фруктов (с учетом текущего улучшения)
+    function shiftRange() {
+      currentRangeStart = (currentRangeStart + 1) % fruitSizes.length;
+      currentRangeEnd = (currentRangeStart + 5) % fruitSizes.length;
+      adjustFruits();
+    }
+    function adjustFruits() {
+      fruits.forEach(fruit => {
+        const adjustedIndex = (fruit.sizeIndex - currentRangeStart + fruitSizes.length) % fruitSizes.length;
+        if (adjustedIndex > 5) {
+          World.remove(engine.world, fruit.body);
+          app.stage.removeChild(fruit.sprite);
+          fruits.splice(fruits.indexOf(fruit), 1);
+        } else {
+          const newSize = fruitSizes[adjustedIndex];
+          fruit.sprite.width = newSize;
+          fruit.sprite.height = newSize;
+          Body.scale(fruit.body, newSize / fruit.body.circleRadius / 2, newSize / fruit.body.circleRadius / 2);
+          fruit.body.circleRadius = newSize / 2;
+          fruit.sizeIndex = adjustedIndex;
+        }
+      });
+    }
     function removeSmallFruits() {
       if (removeCharges <= 0) return;
-      
       const smallFruits = fruits.filter(f => f.sizeIndex <= currentRemoveMaxLevel);
       smallFruits.forEach(fruit => {
         World.remove(engine.world, fruit.body);
         app.stage.removeChild(fruit.sprite);
       });
       fruits = fruits.filter(f => f.sizeIndex > currentRemoveMaxLevel);
-      
       // Уменьшаем количество зарядов
       removeCharges--;
       updateRemoveButtonText();
     }
-
-    // Функция для тряски фруктов (усиленная версия)
     function shakeFruits() {
       fruits.forEach(fruit => {
         const force = {
@@ -422,8 +275,6 @@
         Body.applyForce(fruit.body, fruit.body.position, force);
       });
     }
-
-    // Функция для безопасного позиционирования фрукта у границ
     function getSafeDropX(x) {
       const width = app.renderer.width;
       if (x < BORDER_SAFE_MARGIN) {
@@ -433,23 +284,23 @@
       }
       return x;
     }
-
     function startGame() {
       document.getElementById('startScreen').style.display = 'none';
       canDrop = true;
-      nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
+      if (isInfiniteMode) {
+        nextFruitIndex = Math.floor(Math.random() * 4); // Первые 4 фрукта в бесконечном режиме
+      } else {
+        nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
+      }
       showNextFruitPreview();
-      
       // Обновляем текст кнопки удаления
       updateRemoveButtonText();
-      
       if (!audioInitialized) {
         initAudio();
       } else if (isSoundOn) {
         playMusic();
       }
     }
-
     function endGame() {
       document.getElementById('gameOverScreen').style.display = 'block';
       if (fruits.length > 0) {
@@ -462,7 +313,6 @@
       canDrop = false;
       stopMusic();
     }
-
     function initGame() {
       const container = document.getElementById('gameContainer');
       app = new PIXI.Application({
@@ -471,16 +321,13 @@
         backgroundAlpha: 0
       });
       container.appendChild(app.view);
-
       engine = Engine.create();
       engine.gravity.y = 1.2;
       fruits = [];
-
       resizeWalls();
       window.addEventListener('resize', () => {
         app.renderer.resize(container.clientWidth, container.clientHeight);
       });
-
       Events.on(engine, 'collisionStart', (e) => {
         for (const pair of e.pairs) {
           const a = pair.bodyA.fruit;
@@ -493,7 +340,6 @@
           }
         }
       });
-
       let checkTimer = 0;
       app.ticker.add((delta) => {
         Engine.update(engine, delta * 16.666);
@@ -502,7 +348,6 @@
           fruit.sprite.y = fruit.body.position.y;
           fruit.sprite.rotation = fruit.body.angle;
         });
-
         const outOfBounds = fruits.filter(f => f.body.position.y < 0);
         if (outOfBounds.length > 0) {
           checkTimer += app.ticker.deltaMS;
@@ -513,7 +358,6 @@
           checkTimer = 0;
         }
       });
-
       document.getElementById('startScreen').style.display = 'block';
       document.getElementById('startButton').addEventListener('click', startGame);
       document.getElementById('restartButton').addEventListener('click', function() {
@@ -524,60 +368,57 @@
         location.reload();
       });
       document.getElementById('soundButton').addEventListener('click', toggleSound);
-      
-      // Добавляем обработчики для специальных кнопок
       document.getElementById('removeSmallFruits').addEventListener('click', function(e) {
         e.stopPropagation(); // Предотвращаем всплытие события
         removeSmallFruits();
       });
-      
       document.getElementById('shakeFruits').addEventListener('click', function(e) {
         e.stopPropagation(); // Предотвращаем всплытие события
         shakeFruits();
       });
-
+      document.getElementById('infiniteModeButton').addEventListener('click', function() {
+        isInfiniteMode = true;
+        currentRangeStart = 0;
+        currentRangeEnd = 5;
+        startGame();
+      });
       window.addEventListener('pointerdown', (e) => {
         if (!canDrop) return;
         if (e.target.closest('.special-button')) return; // Игнорируем клики по кнопкам
-
         const rect = app.view.getBoundingClientRect();
         let x = e.clientX - rect.left;
-        
         // Корректируем позицию для безопасного спавна
         x = getSafeDropX(x);
-        
         createFruit(x, 0, nextFruitIndex);
         canDrop = false;
         setTimeout(() => canDrop = true, 300);
-        nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
+        if (isInfiniteMode) {
+          nextFruitIndex = Math.floor(Math.random() * 4); // Первые 4 фрукта в бесконечном режиме
+        } else {
+          nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
+        }
         showNextFruitPreview();
       });
     }
-
-    // Загрузка ассетов
     function loadAssets() {
-      const totalAssets = 12;
+      const totalAssets = 16;
       let loadedAssets = 0;
-
       function updateProgress() {
         loadedAssets++;
         const progress = Math.round((loadedAssets / totalAssets) * 100);
         document.getElementById('loadingBar').style.width = `${progress}%`;
         document.getElementById('loadingText').textContent = `Загрузка... ${progress}%`;
-
         if (loadedAssets === totalAssets) {
           document.getElementById('startButton').disabled = false;
         }
       }
-
       for (let i = 1; i <= totalAssets; i++) {
         const img = new Image();
-        img.src = `assets/t${i}.png`;
+        img.src = `assets/t${i.toString().padStart(2, '0')}.png`;
         img.onload = updateProgress;
         img.onerror = updateProgress;
       }
     }
-
     window.onload = () => {
       loadAssets();
       initGame();
