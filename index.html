@@ -248,8 +248,11 @@
 
     // Функция для сдвига диапазона
     function shiftFruitRange() {
+      const oldMin = currentFruitRange.min;
       currentFruitRange.min = (currentFruitRange.min + 1) % TOTAL_FRUITS;
       currentFruitRange.max = (currentFruitRange.max + 1) % TOTAL_FRUITS;
+      
+      console.log(`Диапазон сменился: ${getFruitTextureName(oldMin)}-${getFruitTextureName(currentFruitRange.max)} → ${getFruitTextureName(currentFruitRange.min)}-${getFruitTextureName(currentFruitRange.max)}`);
       
       // Уменьшаем все фрукты на 1 уровень или удаляем, если их нет в новом диапазоне
       const fruitsToRemove = [];
@@ -261,7 +264,7 @@
         if (fruit.sizeIndex < currentFruitRange.min || fruit.sizeIndex > currentFruitRange.max) {
           fruitsToRemove.push(fruit);
         } else {
-          // Обновляем только размер (текстура остается прежней)
+          // Обновляем размер (и физическую модель)
           const size = fruitSizes[fruit.sizeIndex];
           fruit.sprite.width = size;
           fruit.sprite.height = size;
@@ -277,6 +280,10 @@
         app.stage.removeChild(fruit.sprite);
         fruits.splice(fruits.indexOf(fruit), 1);
       });
+      
+      // Обновляем следующий фрукт, чтобы он был в новом диапазоне
+      nextFruitIndex = getRandomFruitIndex();
+      showNextFruitPreview();
     }
 
     // Инициализация аудио
@@ -423,10 +430,15 @@
       let newIndex = f1.sizeIndex + 1;
       
       if (isInfiniteMode) {
-        // Проверяем, нужно ли сдвигать диапазон
+        // Проверяем, нужно ли сдвигать диапазон (если новый фрукт выходит за пределы текущего диапазона)
         if (newIndex > currentFruitRange.max) {
           shiftFruitRange();
           newIndex = (newIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
+          
+          // После сдвига диапазона нужно проверить, не вышел ли новый фрукт за пределы нового диапазона
+          if (newIndex < currentFruitRange.min || newIndex > currentFruitRange.max) {
+            return; // Не создаем фрукт, если он вне нового диапазона
+          }
         }
       } else {
         if (newIndex >= STANDARD_FRUITS) return;
@@ -461,9 +473,10 @@
       if (!isInfiniteMode) {
         return Math.floor(Math.random() * 4);
       }
-      // В бесконечном режиме выбираем из текущего диапазона
-      const rangeSize = currentFruitRange.max - currentFruitRange.min + 1;
-      return currentFruitRange.min + Math.floor(Math.random() * Math.min(4, rangeSize));
+      // В бесконечном режиме выбираем из первых 4 фруктов текущего диапазона
+      const rangeStart = currentFruitRange.min;
+      const rangeEnd = Math.min(currentFruitRange.min + 3, currentFruitRange.max);
+      return rangeStart + Math.floor(Math.random() * (rangeEnd - rangeStart + 1));
     }
 
     function removeSmallFruits() {
