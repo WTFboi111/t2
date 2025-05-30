@@ -201,12 +201,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
   <script>
-    // Matter.js
-    const Engine = Matter.Engine;
-    const World = Matter.World;
-    const Bodies = Matter.Bodies;
-    const Body = Matter.Body;
-    const Events = Matter.Events;
+    // Matter.js модули
+    const Engine = Matter.Engine,
+          World = Matter.World,
+          Bodies = Matter.Bodies,
+          Body = Matter.Body,
+          Events = Matter.Events;
 
     // Глобальные переменные
     let app, engine, fruits = [], canDrop = true, nextFruitIndex;
@@ -218,85 +218,38 @@
     const FRUIT_RANGE_SIZE = 10;
     const BORDER_SAFE_MARGIN = 30;
 
-    // Размеры фруктов (индекс: размер в пикселях)
+    // Размеры фруктов
     const fruitSizes = Array.from({length: TOTAL_FRUITS}, (_, i) => Math.round(baseSize * Math.pow(1.25, i)));
 
-    // Режимы игры
-    let isInfiniteMode = false;
-    let currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
+    // Соответствие размеров и фруктов
     let sizeToFruitMap = Array.from({length: TOTAL_FRUITS}, (_, i) => i);
+    let currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
+    let isInfiniteMode = false;
 
     // Функция для получения текстуры по индексу размера
     function getFruitTextureName(sizeIndex) {
       const fruitIndex = sizeToFruitMap[sizeIndex];
-      if (fruitIndex < EXTRA_FRUITS) {
-        return `t0${fruitIndex + 1}.png`;
-      } else {
-        return `t${fruitIndex - EXTRA_FRUITS + 1}.png`;
-      }
+      return fruitIndex < EXTRA_FRUITS ? `t0${fruitIndex + 1}.png` : `t${fruitIndex - EXTRA_FRUITS + 1}.png`;
     }
 
-    // Функция для сдвига диапазона с циклическим перемещением
-    function shiftFruitRange() {
-      // Циклически сдвигаем соответствие размеров и фруктов
-      const lastFruit = sizeToFruitMap.pop();
-      sizeToFruitMap.unshift(lastFruit);
-      
-      // Обновляем диапазон
-      currentFruitRange.min = (currentFruitRange.min + 1) % TOTAL_FRUITS;
-      currentFruitRange.max = (currentFruitRange.max + 1) % TOTAL_FRUITS;
-      
-      console.log(`Диапазон сменился. Новое соответствие размеров:`, sizeToFruitMap);
-      
-      // Обновляем все фрукты на поле
-      const fruitsToRemove = [];
-      fruits.forEach(fruit => {
-        const newSizeIndex = (fruit.sizeIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
-        fruit.sizeIndex = newSizeIndex;
-        
-        // Обновляем размер и текстуру
-        const newSize = fruitSizes[newSizeIndex];
-        fruit.sprite.width = newSize;
-        fruit.sprite.height = newSize;
-        fruit.sprite.texture = PIXI.Texture.from(`assets/${getFruitTextureName(newSizeIndex)}`);
-        Body.set(fruit.body, {
-          circleRadius: newSize / 2
-        });
-        
-        // Если фрукт вышел за пределы диапазона - удаляем
-        if (newSizeIndex < currentFruitRange.min || newSizeIndex > currentFruitRange.max) {
-          fruitsToRemove.push(fruit);
-        }
-      });
-      
-      // Удаляем фрукты, которые вышли за пределы диапазона
-      fruitsToRemove.forEach(fruit => {
-        World.remove(engine.world, fruit.body);
-        app.stage.removeChild(fruit.sprite);
-        fruits.splice(fruits.indexOf(fruit), 1);
-      });
-      
-      // Обновляем следующий фрукт
-      nextFruitIndex = getRandomFruitIndex();
-      showNextFruitPreview();
-    }
-
+    // Создание фрукта
     function createFruit(x, y, sizeIndex) {
       const size = fruitSizes[sizeIndex];
-      const textureName = getFruitTextureName(sizeIndex);
+      const texture = PIXI.Texture.from(`assets/${getFruitTextureName(sizeIndex)}`);
       
-      const texture = PIXI.Texture.from(`assets/${textureName}`);
       const sprite = new PIXI.Sprite(texture);
       sprite.anchor.set(0.5);
       sprite.width = size;
       sprite.height = size;
       sprite.x = x;
       sprite.y = y;
+      sprite.texture.baseTexture.alphaMode = PIXI.ALPHA_MODES.PREMULTIPLY_ALPHA;
       app.stage.addChild(sprite);
 
       const body = Bodies.circle(x, y, size / 2, {
         restitution: 0.4,
         friction: 0.001,
+        render: { visible: false }
       });
       body.fruit = { sprite, sizeIndex };
 
@@ -304,7 +257,7 @@
       const fruitObj = { sprite, body, sizeIndex };
       fruits.push(fruitObj);
       
-      // Проверяем, нужно ли сдвигать диапазон после создания фрукта
+      // Проверка смены диапазона
       if (isInfiniteMode && sizeIndex === currentFruitRange.max) {
         shiftFruitRange();
       }
@@ -312,37 +265,74 @@
       return fruitObj;
     }
 
+    // Слияние фруктов
     function mergeFruits(f1, f2) {
-      if (!f1 || !f2) return;
+      if (!f1 || !f2 || f1.sizeIndex !== f2.sizeIndex) return;
       
-      let newIndex = f1.sizeIndex + 1;
-      
-      if (isInfiniteMode) {
-        // В бесконечном режиме проверяем, не вышел ли новый фрукт за пределы диапазона
-        if (newIndex > currentFruitRange.max) {
-          return; // Не создаем фрукт, если он вне текущего диапазона
-        }
-      } else {
-        if (newIndex >= STANDARD_FRUITS) return;
-      }
-      
+      const newIndex = f1.sizeIndex + 1;
       const newX = (f1.body.position.x + f2.body.position.x) / 2;
       const newY = (f1.body.position.y + f2.body.position.y) / 2;
+
+      // Удаляем старые фрукты
       World.remove(engine.world, f1.body);
       World.remove(engine.world, f2.body);
       app.stage.removeChild(f1.sprite);
       app.stage.removeChild(f2.sprite);
       fruits.splice(fruits.indexOf(f1), 1);
       fruits.splice(fruits.indexOf(f2), 1);
-      createFruit(newX, newY, newIndex);
+
+      // Проверка на выход за пределы диапазона
+      if (isInfiniteMode && newIndex > currentFruitRange.max) {
+        createFruit(newX, newY, newIndex - 1); // Создаем перед сдвигом
+        shiftFruitRange();
+      } else if (!isInfiniteMode && newIndex < STANDARD_FRUITS) {
+        createFruit(newX, newY, newIndex);
+      }
+      
       updateScore((newIndex + 1) * 10);
+    }
+
+    // Сдвиг диапазона
+    function shiftFruitRange() {
+      // Циклический сдвиг
+      sizeToFruitMap.unshift(sizeToFruitMap.pop());
+      
+      // Обновление диапазона
+      currentFruitRange.min = (currentFruitRange.min + 1) % TOTAL_FRUITS;
+      currentFruitRange.max = (currentFruitRange.max + 1) % TOTAL_FRUITS;
+      
+      // Обновление существующих фруктов
+      const fruitsToRemove = [];
+      fruits.forEach(fruit => {
+        fruit.sizeIndex = (fruit.sizeIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
+        
+        const newSize = fruitSizes[fruit.sizeIndex];
+        fruit.sprite.width = newSize;
+        fruit.sprite.height = newSize;
+        fruit.sprite.texture = PIXI.Texture.from(`assets/${getFruitTextureName(fruit.sizeIndex)}`);
+        Body.set(fruit.body, { circleRadius: newSize / 2 });
+        
+        if (fruit.sizeIndex < currentFruitRange.min || fruit.sizeIndex > currentFruitRange.max) {
+          fruitsToRemove.push(fruit);
+        }
+      });
+      
+      // Удаление фруктов вне диапазона
+      fruitsToRemove.forEach(fruit => {
+        World.remove(engine.world, fruit.body);
+        app.stage.removeChild(fruit.sprite);
+        fruits.splice(fruits.indexOf(fruit), 1);
+      });
+      
+      // Обновление следующего фрукта
+      nextFruitIndex = getRandomFruitIndex();
+      showNextFruitPreview();
     }
 
     function getRandomFruitIndex() {
       if (!isInfiniteMode) {
         return Math.floor(Math.random() * 4);
       }
-      // В бесконечном режиме выбираем из первых 4 фруктов текущего диапазона
       const rangeStart = currentFruitRange.min;
       const rangeEnd = Math.min(currentFruitRange.min + 3, currentFruitRange.max);
       return rangeStart + Math.floor(Math.random() * (rangeEnd - rangeStart + 1));
