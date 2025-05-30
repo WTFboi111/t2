@@ -237,6 +237,48 @@
     let isSoundOn = true;
     let audioInitialized = false;
 
+    // Функция для получения текстуры по индексу
+    function getFruitTextureName(index) {
+      if (index < EXTRA_FRUITS) {
+        return `t0${index + 1}.png`;
+      } else {
+        return `t${index - EXTRA_FRUITS + 1}.png`;
+      }
+    }
+
+    // Функция для сдвига диапазона
+    function shiftFruitRange() {
+      currentFruitRange.min = (currentFruitRange.min + 1) % TOTAL_FRUITS;
+      currentFruitRange.max = (currentFruitRange.max + 1) % TOTAL_FRUITS;
+      
+      // Уменьшаем все фрукты на 1 уровень или удаляем, если их нет в новом диапазоне
+      const fruitsToRemove = [];
+      fruits.forEach(fruit => {
+        const oldIndex = fruit.sizeIndex;
+        fruit.sizeIndex = (fruit.sizeIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
+        
+        // Проверяем, находится ли фрукт в новом диапазоне
+        if (fruit.sizeIndex < currentFruitRange.min || fruit.sizeIndex > currentFruitRange.max) {
+          fruitsToRemove.push(fruit);
+        } else {
+          // Обновляем только размер (текстура остается прежней)
+          const size = fruitSizes[fruit.sizeIndex];
+          fruit.sprite.width = size;
+          fruit.sprite.height = size;
+          Body.set(fruit.body, {
+            circleRadius: size / 2
+          });
+        }
+      });
+      
+      // Удаляем фрукты, которые вышли за пределы диапазона
+      fruitsToRemove.forEach(fruit => {
+        World.remove(engine.world, fruit.body);
+        app.stage.removeChild(fruit.sprite);
+        fruits.splice(fruits.indexOf(fruit), 1);
+      });
+    }
+
     // Инициализация аудио
     async function initAudio() {
       try {
@@ -340,14 +382,9 @@
     }
 
     function createFruit(x, y, sizeIndex) {
-      let textureName;
-      if (sizeIndex < EXTRA_FRUITS) {
-        textureName = `t0${sizeIndex + 1}.png`;
-      } else {
-        textureName = `t${sizeIndex - EXTRA_FRUITS + 1}.png`;
-      }
-
+      const textureName = getFruitTextureName(sizeIndex);
       const size = fruitSizes[sizeIndex];
+      
       const texture = PIXI.Texture.from(`assets/${textureName}`);
       const sprite = new PIXI.Sprite(texture);
       sprite.anchor.set(0.5);
@@ -369,16 +406,6 @@
       return fruitObj;
     }
 
-    function updateFruitTexture(fruit) {
-      let textureName;
-      if (fruit.sizeIndex < EXTRA_FRUITS) {
-        textureName = `t0${fruit.sizeIndex + 1}.png`;
-      } else {
-        textureName = `t${fruit.sizeIndex - EXTRA_FRUITS + 1}.png`;
-      }
-      fruit.sprite.texture = PIXI.Texture.from(`assets/${textureName}`);
-    }
-
     function resizeWalls() {
       const w = app.renderer.width;
       const h = app.renderer.height;
@@ -396,15 +423,9 @@
       let newIndex = f1.sizeIndex + 1;
       
       if (isInfiniteMode) {
+        // Проверяем, нужно ли сдвигать диапазон
         if (newIndex > currentFruitRange.max) {
-          currentFruitRange.min = (currentFruitRange.min + 1) % TOTAL_FRUITS;
-          currentFruitRange.max = (currentFruitRange.max + 1) % TOTAL_FRUITS;
-          
-          fruits.forEach(fruit => {
-            fruit.sizeIndex = (fruit.sizeIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
-            updateFruitTexture(fruit);
-          });
-          
+          shiftFruitRange();
           newIndex = (newIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
         }
       } else {
@@ -427,15 +448,9 @@
       const previewContainer = document.getElementById('nextFruitPreview');
       previewContainer.innerHTML = '';
       
-      let imgName;
-      if (nextFruitIndex < EXTRA_FRUITS) {
-        imgName = `t0${nextFruitIndex + 1}.png`;
-      } else {
-        imgName = `t${nextFruitIndex - EXTRA_FRUITS + 1}.png`;
-      }
-      
+      const textureName = getFruitTextureName(nextFruitIndex);
       const img = document.createElement('img');
-      img.src = `assets/${imgName}`;
+      img.src = `assets/${textureName}`;
       img.style.width = '100%';
       img.style.height = '100%';
       img.style.objectFit = 'contain';
@@ -444,12 +459,11 @@
 
     function getRandomFruitIndex() {
       if (!isInfiniteMode) {
-        // В обычном режиме - только первые 4 фрукта (индексы 0-3)
         return Math.floor(Math.random() * 4);
       }
-      // В бесконечном режиме - первые 4 фрукта из текущего диапазона
-      const rangeSize = Math.min(4, currentFruitRange.max - currentFruitRange.min + 1);
-      return currentFruitRange.min + Math.floor(Math.random() * rangeSize);
+      // В бесконечном режиме выбираем из текущего диапазона
+      const rangeSize = currentFruitRange.max - currentFruitRange.min + 1;
+      return currentFruitRange.min + Math.floor(Math.random() * Math.min(4, rangeSize));
     }
 
     function removeSmallFruits() {
@@ -522,11 +536,8 @@
         const largest = fruits.reduce((a, b) => (a.sizeIndex > b.sizeIndex ? a : b), fruits[0]);
         if (largest) {
           const div = document.getElementById('largestFruit');
-          if (largest.sizeIndex < EXTRA_FRUITS) {
-            div.style.backgroundImage = `url(assets/t0${largest.sizeIndex + 1}.png)`;
-          } else {
-            div.style.backgroundImage = `url(assets/t${largest.sizeIndex - EXTRA_FRUITS + 1}.png)`;
-          }
+          const textureName = getFruitTextureName(largest.sizeIndex);
+          div.style.backgroundImage = `url(assets/${textureName})`;
         }
       }
       canDrop = false;
