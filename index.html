@@ -200,7 +200,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-  <script>
+   <script>
     // Matter.js модули
     const Engine = Matter.Engine,
           World = Matter.World,
@@ -249,44 +249,54 @@
       const body = Bodies.circle(x, y, size / 2, {
         restitution: 0.4,
         friction: 0.001,
-        render: { visible: false }
+        render: { fillStyle: '#ffffff', visible: false }
       });
-      body.fruit = { sprite, sizeIndex };
-
+      
+      // Сохраняем ссылки между физическим телом и спрайтом
+      body.fruitIndex = sizeIndex;
+      body.sprite = sprite;
+      
       World.add(engine.world, body);
-      const fruitObj = { sprite, body, sizeIndex };
-      fruits.push(fruitObj);
+      fruits.push(body);
       
       // Проверка смены диапазона
       if (isInfiniteMode && sizeIndex === currentFruitRange.max) {
         shiftFruitRange();
       }
       
-      return fruitObj;
+      return body;
     }
 
     // Слияние фруктов
-    function mergeFruits(f1, f2) {
-      if (!f1 || !f2 || f1.sizeIndex !== f2.sizeIndex) return;
+    function handleCollision(pair) {
+      const bodyA = pair.bodyA;
+      const bodyB = pair.bodyB;
       
-      const newIndex = f1.sizeIndex + 1;
-      const newX = (f1.body.position.x + f2.body.position.x) / 2;
-      const newY = (f1.body.position.y + f2.body.position.y) / 2;
+      // Проверяем, что это фрукты и они одного уровня
+      if (!bodyA.fruitIndex === undefined || !bodyB.fruitIndex === undefined || 
+          bodyA.fruitIndex !== bodyB.fruitIndex) {
+        return;
+      }
+      
+      const sizeIndex = bodyA.fruitIndex;
+      const newIndex = sizeIndex + 1;
+      const x = (bodyA.position.x + bodyB.position.x) / 2;
+      const y = (bodyA.position.y + bodyB.position.y) / 2;
 
       // Удаляем старые фрукты
-      World.remove(engine.world, f1.body);
-      World.remove(engine.world, f2.body);
-      app.stage.removeChild(f1.sprite);
-      app.stage.removeChild(f2.sprite);
-      fruits.splice(fruits.indexOf(f1), 1);
-      fruits.splice(fruits.indexOf(f2), 1);
+      World.remove(engine.world, bodyA);
+      World.remove(engine.world, bodyB);
+      app.stage.removeChild(bodyA.sprite);
+      app.stage.removeChild(bodyB.sprite);
+      fruits.splice(fruits.indexOf(bodyA), 1);
+      fruits.splice(fruits.indexOf(bodyB), 1);
 
       // Проверка на выход за пределы диапазона
       if (isInfiniteMode && newIndex > currentFruitRange.max) {
-        createFruit(newX, newY, newIndex - 1); // Создаем перед сдвигом
+        createFruit(x, y, newIndex - 1); // Создаем перед сдвигом
         shiftFruitRange();
       } else if (!isInfiniteMode && newIndex < STANDARD_FRUITS) {
-        createFruit(newX, newY, newIndex);
+        createFruit(x, y, newIndex);
       }
       
       updateScore((newIndex + 1) * 10);
@@ -303,25 +313,29 @@
       
       // Обновление существующих фруктов
       const fruitsToRemove = [];
-      fruits.forEach(fruit => {
-        fruit.sizeIndex = (fruit.sizeIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
+      fruits.forEach(body => {
+        const newSizeIndex = (body.fruitIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
+        body.fruitIndex = newSizeIndex;
         
-        const newSize = fruitSizes[fruit.sizeIndex];
-        fruit.sprite.width = newSize;
-        fruit.sprite.height = newSize;
-        fruit.sprite.texture = PIXI.Texture.from(`assets/${getFruitTextureName(fruit.sizeIndex)}`);
-        Body.set(fruit.body, { circleRadius: newSize / 2 });
+        const newSize = fruitSizes[newSizeIndex];
+        body.sprite.width = newSize;
+        body.sprite.height = newSize;
+        body.sprite.texture = PIXI.Texture.from(`assets/${getFruitTextureName(newSizeIndex)}`);
+        Body.set(body, { 
+          circleRadius: newSize / 2,
+          render: { fillStyle: '#ffffff', visible: false }
+        });
         
-        if (fruit.sizeIndex < currentFruitRange.min || fruit.sizeIndex > currentFruitRange.max) {
-          fruitsToRemove.push(fruit);
+        if (newSizeIndex < currentFruitRange.min || newSizeIndex > currentFruitRange.max) {
+          fruitsToRemove.push(body);
         }
       });
       
       // Удаление фруктов вне диапазона
-      fruitsToRemove.forEach(fruit => {
-        World.remove(engine.world, fruit.body);
-        app.stage.removeChild(fruit.sprite);
-        fruits.splice(fruits.indexOf(fruit), 1);
+      fruitsToRemove.forEach(body => {
+        World.remove(engine.world, body);
+        app.stage.removeChild(body.sprite);
+        fruits.splice(fruits.indexOf(body), 1);
       });
       
       // Обновление следующего фрукта
@@ -329,6 +343,7 @@
       showNextFruitPreview();
     }
 
+    // Остальные функции остаются без изменений
     function getRandomFruitIndex() {
       if (!isInfiniteMode) {
         return Math.floor(Math.random() * 4);
@@ -394,12 +409,13 @@
     function endGame() {
       document.getElementById('gameOverScreen').style.display = 'block';
       if (fruits.length > 0) {
-        const largest = fruits.reduce((a, b) => (a.sizeIndex > b.sizeIndex ? a : b), fruits[0]);
-        if (largest) {
-          const div = document.getElementById('largestFruit');
-          const textureName = getFruitTextureName(largest.sizeIndex);
-          div.style.backgroundImage = `url(assets/${textureName})`;
-        }
+        let largest = fruits[0];
+        fruits.forEach(fruit => {
+          if (fruit.fruitIndex > largest.fruitIndex) largest = fruit;
+        });
+        const div = document.getElementById('largestFruit');
+        const textureName = getFruitTextureName(largest.fruitIndex);
+        div.style.backgroundImage = `url(assets/${textureName})`;
       }
       canDrop = false;
     }
@@ -417,29 +433,23 @@
       engine.gravity.y = 1.2;
 
       resizeWalls();
-      window.addEventListener('resize', () => {
-        app.renderer.resize(container.clientWidth, container.clientHeight);
-      });
-
-      Events.on(engine, 'collisionStart', (e) => {
-        for (const pair of e.pairs) {
-          const a = pair.bodyA.fruit;
-          const b = pair.bodyB.fruit;
-          if (!a || !b || a === b) continue;
-          if (a.sizeIndex === b.sizeIndex) {
-            const f1 = fruits.find(f => f.body === pair.bodyA);
-            const f2 = fruits.find(f => f.body === pair.bodyB);
-            if (f1 && f2) mergeFruits(f1, f2);
-          }
+      
+      // Обработчик столкновений
+      Events.on(engine, 'collisionStart', event => {
+        const pairs = event.pairs;
+        for (let i = 0; i < pairs.length; i++) {
+          handleCollision(pairs[i]);
         }
       });
 
       app.ticker.add((delta) => {
         Engine.update(engine, delta * 16.666);
-        fruits.forEach(fruit => {
-          fruit.sprite.x = fruit.body.position.x;
-          fruit.sprite.y = fruit.body.position.y;
-          fruit.sprite.rotation = fruit.body.angle;
+        fruits.forEach(body => {
+          if (body.sprite) {
+            body.sprite.x = body.position.x;
+            body.sprite.y = body.position.y;
+            body.sprite.rotation = body.angle;
+          }
         });
       });
 
@@ -454,12 +464,12 @@
       
       document.getElementById('removeSmallFruits').addEventListener('click', function(e) {
         e.stopPropagation();
-        const smallFruits = fruits.filter(f => f.sizeIndex <= 3);
+        const smallFruits = fruits.filter(f => f.fruitIndex <= 3);
         smallFruits.forEach(fruit => {
-          World.remove(engine.world, fruit.body);
+          World.remove(engine.world, fruit);
           app.stage.removeChild(fruit.sprite);
         });
-        fruits = fruits.filter(f => f.sizeIndex > 3);
+        fruits = fruits.filter(f => f.fruitIndex > 3);
       });
       
       document.getElementById('shakeFruits').addEventListener('click', function(e) {
@@ -467,9 +477,9 @@
         fruits.forEach(fruit => {
           const force = {
             x: (Math.random() - 0.5) * 0.05,
-            y: 0
+            y: -0.01
           };
-          Body.applyForce(fruit.body, fruit.body.position, force);
+          Body.applyForce(fruit, fruit.position, force);
         });
       });
 
