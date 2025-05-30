@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fruit Merge Game</title>
   <style>
     html, body {
@@ -209,33 +209,21 @@
     const Events = Matter.Events;
 
     // Глобальные переменные
-    let app, engine, fruits, canDrop, nextFruitIndex;
+    let app, engine, fruits = [], canDrop = true, nextFruitIndex;
     let score = 0;
     const baseSize = 25;
     const STANDARD_FRUITS = 12;
     const EXTRA_FRUITS = 4;
     const TOTAL_FRUITS = STANDARD_FRUITS + EXTRA_FRUITS;
     const FRUIT_RANGE_SIZE = 10;
-    const fruitSizes = Array.from({ length: TOTAL_FRUITS }, (_, i) => baseSize * Math.pow(1.255, i));
     const BORDER_SAFE_MARGIN = 30;
 
-    // Переменные для улучшений
-    let currentLevelRange = { min: 0, max: 3 };
-    let currentRemoveMaxLevel = 3;
-    let removeCharges = 1;
-    const CHARGE_SCORE_INTERVAL = 5000;
-    let lastChargeScore = 0;
+    // Размеры фруктов (индекс: размер в пикселях)
+    const fruitSizes = Array.from({length: TOTAL_FRUITS}, (_, i) => Math.round(baseSize * Math.pow(1.25, i)));
 
     // Режимы игры
     let isInfiniteMode = false;
     let currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
-
-    // Аудио переменные
-    let audioContext;
-    let musicSource;
-    let backgroundMusicBuffer;
-    let isSoundOn = true;
-    let audioInitialized = false;
 
     // Функция для получения текстуры по индексу
     function getFruitTextureName(index) {
@@ -252,24 +240,23 @@
       currentFruitRange.min = (currentFruitRange.min + 1) % TOTAL_FRUITS;
       currentFruitRange.max = (currentFruitRange.max + 1) % TOTAL_FRUITS;
       
-      console.log(`Диапазон сменился: ${getFruitTextureName(oldMin)}-${getFruitTextureName(currentFruitRange.max)} → ${getFruitTextureName(currentFruitRange.min)}-${getFruitTextureName(currentFruitRange.max)}`);
+      console.log(`Диапазон сменился: ${getFruitTextureName(oldMin)}-${getFruitTextureName(currentFruitRange.max)}`);
       
-      // Уменьшаем все фрукты на 1 уровень или удаляем, если их нет в новом диапазоне
+      // Уменьшаем все фрукты на 1 уровень (размер)
       const fruitsToRemove = [];
       fruits.forEach(fruit => {
-        const oldIndex = fruit.sizeIndex;
-        fruit.sizeIndex = (fruit.sizeIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
+        fruit.sizeIndex -= 1; // Уменьшаем индекс на 1
         
-        // Проверяем, находится ли фрукт в новом диапазоне
-        if (fruit.sizeIndex < currentFruitRange.min || fruit.sizeIndex > currentFruitRange.max) {
+        // Если фрукт вышел за пределы диапазона
+        if (fruit.sizeIndex < currentFruitRange.min) {
           fruitsToRemove.push(fruit);
         } else {
-          // Обновляем размер (и физическую модель)
-          const size = fruitSizes[fruit.sizeIndex];
-          fruit.sprite.width = size;
-          fruit.sprite.height = size;
+          // Обновляем только размер (текстура остается прежней)
+          const newSize = fruitSizes[fruit.sizeIndex];
+          fruit.sprite.width = newSize;
+          fruit.sprite.height = newSize;
           Body.set(fruit.body, {
-            circleRadius: size / 2
+            circleRadius: newSize / 2
           });
         }
       });
@@ -281,111 +268,9 @@
         fruits.splice(fruits.indexOf(fruit), 1);
       });
       
-      // Обновляем следующий фрукт, чтобы он был в новом диапазоне
+      // Обновляем следующий фрукт
       nextFruitIndex = getRandomFruitIndex();
       showNextFruitPreview();
-    }
-
-    // Инициализация аудио
-    async function initAudio() {
-      try {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        const response = await fetch('/assets/t.mp3');
-        const arrayBuffer = await response.arrayBuffer();
-        backgroundMusicBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
-        console.log('Audio initialized');
-        audioInitialized = true;
-        if (isSoundOn) playMusic();
-      } catch (e) {
-        console.error('Audio initialization error:', e);
-      }
-    }
-
-    function playMusic() {
-      if (!audioContext || !backgroundMusicBuffer || !isSoundOn) return;
-      
-      try {
-        if (musicSource) {
-          musicSource.stop();
-        }
-        
-        musicSource = audioContext.createBufferSource();
-        musicSource.buffer = backgroundMusicBuffer;
-        musicSource.loop = true;
-        musicSource.connect(audioContext.destination);
-        musicSource.start(0);
-      } catch (e) {
-        console.error('Error playing music:', e);
-      }
-    }
-
-    function stopMusic() {
-      if (musicSource) {
-        musicSource.stop();
-        musicSource = null;
-      }
-    }
-
-    function toggleSound() {
-      isSoundOn = !isSoundOn;
-      document.getElementById('soundButton').textContent = isSoundOn ? '🔊' : '🔇';
-      
-      if (isSoundOn) {
-        if (audioContext.state === 'suspended') {
-          audioContext.resume().then(() => {
-            if (audioInitialized) {
-              playMusic();
-            } else {
-              initAudio();
-            }
-          });
-        } else {
-          if (audioInitialized) {
-            playMusic();
-          } else {
-            initAudio();
-          }
-        }
-      } else {
-        stopMusic();
-      }
-    }
-
-    function updateScore(value) {
-      score += value;
-      document.getElementById('score').textContent = score;
-      
-      if (score >= lastChargeScore + CHARGE_SCORE_INTERVAL) {
-        removeCharges++;
-        lastChargeScore = score;
-        updateRemoveButtonText();
-      }
-      
-      checkForUpgrades();
-    }
-
-    function updateRemoveButtonText() {
-      const button = document.getElementById('removeSmallFruits');
-      button.textContent = `Убрать мелочь (${removeCharges})`;
-      button.disabled = removeCharges <= 0;
-    }
-
-    function checkForUpgrades() {
-      const level = Math.floor(score / 7500);
-      
-      const newMin = Math.min(level, 8);
-      const newMax = Math.min(3 + level, 11);
-      
-      if (newMin !== currentLevelRange.min || newMax !== currentLevelRange.max) {
-        currentLevelRange = { min: 0, max: newMax };
-      }
-      
-      const newRemoveMax = Math.min(2 + level, 11);
-      if (newRemoveMax !== currentRemoveMaxLevel) {
-        currentRemoveMaxLevel = newRemoveMax;
-      }
     }
 
     function createFruit(x, y, sizeIndex) {
@@ -410,18 +295,13 @@
       World.add(engine.world, body);
       const fruitObj = { sprite, body, sizeIndex };
       fruits.push(fruitObj);
+      
+      // Проверяем, нужно ли сдвигать диапазон после создания фрукта
+      if (isInfiniteMode && sizeIndex === currentFruitRange.max) {
+        shiftFruitRange();
+      }
+      
       return fruitObj;
-    }
-
-    function resizeWalls() {
-      const w = app.renderer.width;
-      const h = app.renderer.height;
-      const thickness = 100;
-      const groundY = h * 0.82;
-      const ground = Bodies.rectangle(w / 2, groundY, w, thickness, { isStatic: true });
-      const leftWall = Bodies.rectangle(-thickness / 2, h / 2, thickness, h, { isStatic: true });
-      const rightWall = Bodies.rectangle(w + thickness / 2, h / 2, thickness, h, { isStatic: true });
-      World.add(engine.world, [ground, leftWall, rightWall]);
     }
 
     function mergeFruits(f1, f2) {
@@ -430,15 +310,9 @@
       let newIndex = f1.sizeIndex + 1;
       
       if (isInfiniteMode) {
-        // Проверяем, нужно ли сдвигать диапазон (если новый фрукт выходит за пределы текущего диапазона)
+        // В бесконечном режиме проверяем, не вышел ли новый фрукт за пределы диапазона
         if (newIndex > currentFruitRange.max) {
-          shiftFruitRange();
-          newIndex = (newIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
-          
-          // После сдвига диапазона нужно проверить, не вышел ли новый фрукт за пределы нового диапазона
-          if (newIndex < currentFruitRange.min || newIndex > currentFruitRange.max) {
-            return; // Не создаем фрукт, если он вне нового диапазона
-          }
+          return; // Не создаем фрукт, если он вне текущего диапазона
         }
       } else {
         if (newIndex >= STANDARD_FRUITS) return;
@@ -456,6 +330,16 @@
       updateScore((newIndex + 1) * 10);
     }
 
+    function getRandomFruitIndex() {
+      if (!isInfiniteMode) {
+        return Math.floor(Math.random() * 4);
+      }
+      // В бесконечном режиме выбираем из первых 4 фруктов текущего диапазона
+      const rangeStart = currentFruitRange.min;
+      const rangeEnd = Math.min(currentFruitRange.min + 3, currentFruitRange.max);
+      return rangeStart + Math.floor(Math.random() * (rangeEnd - rangeStart + 1));
+    }
+
     function showNextFruitPreview() {
       const previewContainer = document.getElementById('nextFruitPreview');
       previewContainer.innerHTML = '';
@@ -469,48 +353,20 @@
       previewContainer.appendChild(img);
     }
 
-    function getRandomFruitIndex() {
-      if (!isInfiniteMode) {
-        return Math.floor(Math.random() * 4);
-      }
-      // В бесконечном режиме выбираем из первых 4 фруктов текущего диапазона
-      const rangeStart = currentFruitRange.min;
-      const rangeEnd = Math.min(currentFruitRange.min + 3, currentFruitRange.max);
-      return rangeStart + Math.floor(Math.random() * (rangeEnd - rangeStart + 1));
+    function updateScore(value) {
+      score += value;
+      document.getElementById('score').textContent = score;
     }
 
-    function removeSmallFruits() {
-      if (removeCharges <= 0) return;
-      
-      const smallFruits = fruits.filter(f => f.sizeIndex <= currentRemoveMaxLevel);
-      smallFruits.forEach(fruit => {
-        World.remove(engine.world, fruit.body);
-        app.stage.removeChild(fruit.sprite);
-      });
-      fruits = fruits.filter(f => f.sizeIndex > currentRemoveMaxLevel);
-      
-      removeCharges--;
-      updateRemoveButtonText();
-    }
-
-    function shakeFruits() {
-      fruits.forEach(fruit => {
-        const force = {
-          x: (Math.random() - 0.5) * 0.05,
-          y: 0
-        };
-        Body.applyForce(fruit.body, fruit.body.position, force);
-      });
-    }
-
-    function getSafeDropX(x) {
-      const width = app.renderer.width;
-      if (x < BORDER_SAFE_MARGIN) {
-        return BORDER_SAFE_MARGIN;
-      } else if (x > width - BORDER_SAFE_MARGIN) {
-        return width - BORDER_SAFE_MARGIN;
-      }
-      return x;
+    function resizeWalls() {
+      const w = app.renderer.width;
+      const h = app.renderer.height;
+      const thickness = 100;
+      const groundY = h * 0.82;
+      const ground = Bodies.rectangle(w / 2, groundY, w, thickness, { isStatic: true });
+      const leftWall = Bodies.rectangle(-thickness / 2, h / 2, thickness, h, { isStatic: true });
+      const rightWall = Bodies.rectangle(w + thickness / 2, h / 2, thickness, h, { isStatic: true });
+      World.add(engine.world, [ground, leftWall, rightWall]);
     }
 
     function startGame(infiniteMode = false) {
@@ -519,6 +375,7 @@
       canDrop = true;
       
       if (isInfiniteMode) {
+        currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
         const container = document.getElementById('gameContainer');
         const centerX = container.clientWidth / 2;
         
@@ -526,21 +383,12 @@
           const x = centerX - 100 + (i * 70);
           createFruit(x, container.clientHeight * 0.7 - (i * 20), i);
         }
-        
-        currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
       } else {
         currentFruitRange = { min: 0, max: STANDARD_FRUITS - 1 };
       }
       
       nextFruitIndex = getRandomFruitIndex();
       showNextFruitPreview();
-      updateRemoveButtonText();
-      
-      if (!audioInitialized) {
-        initAudio();
-      } else if (isSoundOn) {
-        playMusic();
-      }
     }
 
     function endGame() {
@@ -554,7 +402,6 @@
         }
       }
       canDrop = false;
-      stopMusic();
     }
 
     function initGame() {
@@ -568,7 +415,6 @@
 
       engine = Engine.create();
       engine.gravity.y = 1.2;
-      fruits = [];
 
       resizeWalls();
       window.addEventListener('resize', () => {
@@ -588,7 +434,6 @@
         }
       });
 
-      let checkTimer = 0;
       app.ticker.add((delta) => {
         Engine.update(engine, delta * 16.666);
         fruits.forEach(fruit => {
@@ -596,47 +441,44 @@
           fruit.sprite.y = fruit.body.position.y;
           fruit.sprite.rotation = fruit.body.angle;
         });
-
-        const outOfBounds = fruits.filter(f => f.body.position.y < 0);
-        if (outOfBounds.length > 0) {
-          checkTimer += app.ticker.deltaMS;
-          if (checkTimer > 3000) {
-            endGame();
-          }
-        } else {
-          checkTimer = 0;
-        }
       });
 
       document.getElementById('startScreen').style.display = 'block';
       document.getElementById('startButton').addEventListener('click', () => startGame(false));
       document.getElementById('infiniteModeButton').addEventListener('click', () => startGame(true));
-      document.getElementById('restartButton').addEventListener('click', function() {
-        if (isSoundOn) {
-          stopMusic();
-          playMusic();
-        }
-        location.reload();
+      document.getElementById('restartButton').addEventListener('click', () => location.reload());
+      document.getElementById('soundButton').addEventListener('click', () => {
+        const button = document.getElementById('soundButton');
+        button.textContent = button.textContent === '🔊' ? '🔇' : '🔊';
       });
-      document.getElementById('soundButton').addEventListener('click', toggleSound);
       
       document.getElementById('removeSmallFruits').addEventListener('click', function(e) {
         e.stopPropagation();
-        removeSmallFruits();
+        const smallFruits = fruits.filter(f => f.sizeIndex <= 3);
+        smallFruits.forEach(fruit => {
+          World.remove(engine.world, fruit.body);
+          app.stage.removeChild(fruit.sprite);
+        });
+        fruits = fruits.filter(f => f.sizeIndex > 3);
       });
       
       document.getElementById('shakeFruits').addEventListener('click', function(e) {
         e.stopPropagation();
-        shakeFruits();
+        fruits.forEach(fruit => {
+          const force = {
+            x: (Math.random() - 0.5) * 0.05,
+            y: 0
+          };
+          Body.applyForce(fruit.body, fruit.body.position, force);
+        });
       });
 
       window.addEventListener('pointerdown', (e) => {
-        if (!canDrop) return;
-        if (e.target.closest('.special-button')) return;
+        if (!canDrop || e.target.closest('.special-button')) return;
 
         const rect = app.view.getBoundingClientRect();
         let x = e.clientX - rect.left;
-        x = getSafeDropX(x);
+        x = Math.max(BORDER_SAFE_MARGIN, Math.min(x, app.renderer.width - BORDER_SAFE_MARGIN));
         
         createFruit(x, 0, nextFruitIndex);
         canDrop = false;
