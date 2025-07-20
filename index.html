@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fruit Merge Game</title>
   <style>
     html, body {
@@ -13,6 +13,7 @@
       background: url('https://wallpaper-house.com/data/out/8/wallpaper2you_235377.jpg');
       background-size: cover;
     }
+    /* Очки в левом верхнем углу без фона */
     #scoreboard {
       position: absolute;
       top: 10px;
@@ -23,6 +24,7 @@
       text-shadow: 1px 1px 3px black;
       z-index: 3;
     }
+    /* Превью фрукта над игровым контейнером без фона */
     #nextFruitPreview {
       position: absolute;
       top: 20px;
@@ -104,7 +106,7 @@
       background: #4CAF50;
       transition: width 0.3s;
     }
-    #startButton, #restartButton, #infiniteModeButton {
+    #startButton, #restartButton {
       margin-top: 20px;
       padding: 10px 20px;
       font-size: 18px;
@@ -113,16 +115,8 @@
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      display: block;
-      width: 200px;
-      margin-left: auto;
-      margin-right: auto;
     }
-    #infiniteModeButton {
-      background: #2196F3;
-      margin-top: 10px;
-    }
-    #startButton:disabled, #infiniteModeButton:disabled {
+    #startButton:disabled {
       background: #cccccc;
       cursor: not-allowed;
     }
@@ -138,6 +132,7 @@
       cursor: pointer;
       z-index: 10;
     }
+    /* Стили для специальных кнопок */
     #specialButtons {
       position: absolute;
       bottom: 20px;
@@ -150,7 +145,7 @@
     .special-button {
       padding: 10px 20px;
       font-size: 16px;
-      background: #8B5A2B;
+      background: #8B5A2B; /* Коричневый цвет */
       color: white;
       border: none;
       border-radius: 5px;
@@ -158,7 +153,7 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     .special-button:hover {
-      background: #A67C52;
+      background: #A67C52; /* Светло-коричневый при наведении */
     }
     .special-button:disabled {
       background: #cccccc;
@@ -178,7 +173,7 @@
     </div>
     <div id="loadingText">Загрузка... 0%</div>
     <button id="startButton" disabled>Наполнить яму</button>
-    <button id="infiniteModeButton" disabled>Вечная игра</button>
+    <button id="endlessButton" disabled>Вечная игра</button>
   </div>
   
   <div id="gameOverScreen">
@@ -193,182 +188,350 @@
     </div>
   </div>
 
+  <!-- Добавляем специальные кнопки -->
   <div id="specialButtons">
     <button id="removeSmallFruits" class="special-button">Убрать мелочь (1)</button>
     <button id="shakeFruits" class="special-button">Встряхнуть</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
+<script>
+
+    /* ===== Endless Mode Patch ===== */
+    /* Adds a new endless mode with sliding fruit window */
+    (() => {
+      // ---- Configuration ----
+      const TOTAL_FRUITS = 16;        // t01..t04 + t1..t12
+      const WINDOW_SIZE = 10;         // visible range length
+      const ENDLESS_DROP_RANGE = 4;   // first 4 fruits can drop
+      let isEndlessMode = false;
+      let windowStart = 0;            // index of first fruit in window (0..15)
+
+      // ---- DOM: extra button ----
+      const endlessBtn = document.getElementById('endlessButton');
+      endlessBtn.addEventListener('click', () => startGame(true));
+
+      // Enable endlessBtn after assets loaded (loadAssets will enable)
+
+      // ---- Helpers ----
+      const assetPath = (globalIdx) => {
+        return globalIdx < 4 ? `assets/t0${globalIdx + 1}.png`
+                             : `assets/t${globalIdx - 3}.png`;
+      };
+
+      // Monkey‑patch startGame to accept parameter
+      const originalStartGame = startGame;
+      window.startGame = function(endless = false) {
+        isEndlessMode = endless;
+        windowStart = 0;
+        originalStartGame();
+      };
+
+      // ---- Override random nextFruit selection during game start ----
+      const originalShowNextFruitPreview = showNextFruitPreview;
+      window.showNextFruitPreview = function() {
+        if (!isEndlessMode) {
+          return originalShowNextFruitPreview();
+        }
+        const previewContainer = document.getElementById('nextFruitPreview');
+        previewContainer.innerHTML = '';
+        const globalIdx = (windowStart + nextFruitIndex) % TOTAL_FRUITS;
+        const img = document.createElement('img');
+        img.src = assetPath(globalIdx);
+        img.style.width = img.style.height = '50px';
+        previewContainer.appendChild(img);
+      };
+
+      // ---- Override createFruit ----
+      const originalCreateFruit = createFruit;
+      window.createFruit = function(x, y, sizeIndex) {
+        if (!isEndlessMode) {
+          return originalCreateFruit(x, y, sizeIndex);
+        }
+
+        // Handle overflow by sliding window
+        while (sizeIndex >= WINDOW_SIZE) {
+          shiftWindow();
+          sizeIndex -= 1;
+        }
+
+        const windowIndex = sizeIndex;                // 0..9
+        const size = fruitSizes[windowIndex];
+        const globalIdx = (windowStart + windowIndex) % TOTAL_FRUITS;
+        const texture = PIXI.Texture.from(assetPath(globalIdx));
+
+        const sprite = new PIXI.Sprite(texture);
+        sprite.anchor.set(0.5);
+        sprite.width = size;
+        sprite.height = size;
+        sprite.x = x;
+        sprite.y = y;
+        app.stage.addChild(sprite);
+
+        const body = Bodies.circle(x, y, size / 2, {
+          restitution: 0.4,
+          friction: 0.001,
+        });
+        body.fruit = { sprite, sizeIndex: windowIndex, lastSize: size };
+        const fruitObj = { sprite, body, sizeIndex: windowIndex, lastSize: size };
+        fruits.push(fruitObj);
+        World.add(engine.world, body);
+
+        // If this is the biggest fruit in window, shift window
+        if (windowIndex === WINDOW_SIZE - 1) {
+          shiftWindow();
+        }
+        return fruitObj;
+      };
+
+      // ---- Shift window ----
+      function shiftWindow() {
+        windowStart = (windowStart + 1) % TOTAL_FRUITS;
+
+        for (let i = fruits.length - 1; i >= 0; i--) {
+          const f = fruits[i];
+          f.sizeIndex -= 1;
+          if (f.sizeIndex < 0) {
+            // Remove fruit
+            World.remove(engine.world, f.body);
+            app.stage.removeChild(f.sprite);
+            fruits.splice(i, 1);
+            continue;
+          }
+
+          // Update sprite texture
+          const globalIdx = (windowStart + f.sizeIndex) % TOTAL_FRUITS;
+          f.sprite.texture = PIXI.Texture.from(assetPath(globalIdx));
+
+          // Update size
+          const newSize = fruitSizes[f.sizeIndex];
+          const scaleFactor = newSize / f.lastSize;
+          Body.scale(f.body, scaleFactor, scaleFactor);
+          f.lastSize = newSize;
+          f.sprite.width = f.sprite.height = newSize;
+        }
+      }
+
+      // ---- Override mergeFruits ----
+      const originalMergeFruits = mergeFruits;
+      window.mergeFruits = function(f1, f2) {
+        if (!isEndlessMode) {
+          return originalMergeFruits(f1, f2);
+        }
+        if (!f1 || !f2) return;
+        let newIndex = f1.sizeIndex + 1;
+
+        World.remove(engine.world, f1.body);
+        World.remove(engine.world, f2.body);
+        app.stage.removeChild(f1.sprite);
+        app.stage.removeChild(f2.sprite);
+        fruits.splice(fruits.indexOf(f1), 1);
+        fruits.splice(fruits.indexOf(f2), 1);
+
+        // Shift window if newIndex overflows
+        if (newIndex >= WINDOW_SIZE) {
+          shiftWindow();
+          newIndex = WINDOW_SIZE - 1;
+        }
+
+        const newX = (f1.body.position.x + f2.body.position.x) / 2;
+        const newY = (f1.body.position.y + f2.body.position.y) / 2;
+        createFruit(newX, newY, newIndex);
+
+        updateScore((newIndex + 1) * 10);
+      };
+
+      // ---- Update pointerdown handler ----
+      window.addEventListener('pointerdown', (e) => {
+        if (!canDrop) return;
+        if (e.target.closest('.special-button')) return;
+
+        const rect = app.view.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        x = getSafeDropX(x);
+
+        createFruit(x, 0, nextFruitIndex);
+        canDrop = false;
+        setTimeout(() => canDrop = true, 300);
+
+        if (isEndlessMode) {
+          nextFruitIndex = Math.floor(Math.random() * ENDLESS_DROP_RANGE);
+        }
+        showNextFruitPreview();
+      });
+
+      // ---- Patch loadAssets to enable endless button ----
+      const originalLoadAssets = loadAssets;
+      window.loadAssets = function() {
+        originalLoadAssets();
+        // endlessButton will be enabled inside our loadAssets or by patch
+      };
+
+      console.log('Endless mode patch loaded');
+    })();
+    /* ===== Endless Mode Patch End ===== */
+
+</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-   <script>
-    // Matter.js модули
-    const Engine = Matter.Engine,
-          World = Matter.World,
-          Bodies = Matter.Bodies,
-          Body = Matter.Body,
-          Events = Matter.Events;
+  <script>
+    // Matter.js
+    const Engine = Matter.Engine;
+    const World = Matter.World;
+    const Bodies = Matter.Bodies;
+    const Body = Matter.Body;
+    const Events = Matter.Events;
 
     // Глобальные переменные
-    let app, engine, fruits = [], canDrop = true, nextFruitIndex;
+    let app, engine, fruits, canDrop, nextFruitIndex;
     let score = 0;
     const baseSize = 25;
-    const STANDARD_FRUITS = 12;
-    const EXTRA_FRUITS = 4;
-    const TOTAL_FRUITS = STANDARD_FRUITS + EXTRA_FRUITS;
-    const FRUIT_RANGE_SIZE = 10;
-    const BORDER_SAFE_MARGIN = 30;
+    const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.255, i));
+    const BORDER_SAFE_MARGIN = 30; // Отступ от краев для безопасного спавна фруктов
 
-    // Размеры фруктов
-    const fruitSizes = Array.from({length: TOTAL_FRUITS}, (_, i) => Math.round(baseSize * Math.pow(1.25, i)));
+    // Переменные для улучшений
+    let currentLevelRange = { min: 0, max: 3 }; // Начальный диапазон уровней шаров (1-4)
+    let currentRemoveMaxLevel = 3; // Максимальный уровень для удаления мелочи (1-3)
+    let removeCharges = 1; // Начальное количество зарядов для удаления мелочи
+    const CHARGE_SCORE_INTERVAL = 5000; // Каждые 5000 очков даем заряд
+    let lastChargeScore = 0; // Очки при последнем получении заряда
 
-    // Соответствие размеров и фруктов
-    let sizeToFruitMap = Array.from({length: TOTAL_FRUITS}, (_, i) => i);
-    let currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
-    let isInfiniteMode = false;
+    // Аудио переменные
+    let audioContext;
+    let musicSource;
+    let backgroundMusicBuffer;
+    let isSoundOn = true;
+    let audioInitialized = false;
 
-    // Функция для получения текстуры по индексу размера
-    function getFruitTextureName(sizeIndex) {
-      const fruitIndex = sizeToFruitMap[sizeIndex];
-      return fruitIndex < EXTRA_FRUITS ? `t0${fruitIndex + 1}.png` : `t${fruitIndex - EXTRA_FRUITS + 1}.png`;
+    // Инициализация аудио
+    async function initAudio() {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        const response = await fetch('/assets/t.mp3');
+        const arrayBuffer = await response.arrayBuffer();
+        backgroundMusicBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        console.log('Audio initialized');
+        audioInitialized = true;
+        if (isSoundOn) playMusic();
+      } catch (e) {
+        console.error('Audio initialization error:', e);
+      }
     }
 
-    // Создание фрукта
+    function playMusic() {
+      if (!audioContext || !backgroundMusicBuffer || !isSoundOn) return;
+      
+      try {
+        if (musicSource) {
+          musicSource.stop();
+        }
+        
+        musicSource = audioContext.createBufferSource();
+        musicSource.buffer = backgroundMusicBuffer;
+        musicSource.loop = true;
+        musicSource.connect(audioContext.destination);
+        musicSource.start(0);
+      } catch (e) {
+        console.error('Error playing music:', e);
+      }
+    }
+
+    function stopMusic() {
+      if (musicSource) {
+        musicSource.stop();
+        musicSource = null;
+      }
+    }
+
+    function toggleSound() {
+      isSoundOn = !isSoundOn;
+      document.getElementById('soundButton').textContent = isSoundOn ? '🔊' : '🔇';
+      
+      if (isSoundOn) {
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().then(() => {
+            if (audioInitialized) {
+              playMusic();
+            } else {
+              initAudio();
+            }
+          });
+        } else {
+          if (audioInitialized) {
+            playMusic();
+          } else {
+            initAudio();
+          }
+        }
+      } else {
+        stopMusic();
+      }
+    }
+
+    function updateScore(value) {
+      score += value;
+      document.getElementById('score').textContent = score;
+      
+      // Проверяем, нужно ли дать новый заряд для удаления мелочи
+      if (score >= lastChargeScore + CHARGE_SCORE_INTERVAL) {
+        removeCharges++;
+        lastChargeScore = score;
+        updateRemoveButtonText();
+      }
+      
+      // Проверяем, нужно ли улучшить шары или кнопку удаления
+      checkForUpgrades();
+    }
+
+    function updateRemoveButtonText() {
+      const button = document.getElementById('removeSmallFruits');
+      button.textContent = `Убрать мелочь (${removeCharges})`;
+      button.disabled = removeCharges <= 0;
+    }
+
+    // Проверка на улучшения каждые 5000 очков
+    function checkForUpgrades() {
+      const level = Math.floor(score / 7500);
+      
+      // Улучшаем диапазон выпадающих шаров
+      const newMin = Math.min(level, 8); // Максимальный минимальный уровень - 8 (чтобы оставался диапазон)
+      const newMax = Math.min(3 + level, 11); // Максимальный уровень - 11 (индексы 0-11)
+      
+      if (newMin !== currentLevelRange.min || newMax !== currentLevelRange.max) {
+        currentLevelRange = { min: 0, max: newMax };
+        console.log(`Улучшены шары: теперь доступны уровни ${currentLevelRange.min+1}-${currentLevelRange.max+1}`);
+      }
+      
+      // Улучшаем кнопку удаления мелочи
+      const newRemoveMax = Math.min(2 + level, 11); // Максимальный уровень - 11
+      if (newRemoveMax !== currentRemoveMaxLevel) {
+        currentRemoveMaxLevel = newRemoveMax;
+        console.log(`Улучшена кнопка удаления: теперь удаляет уровни 1-${currentRemoveMaxLevel+1}`);
+      }
+    }
+
     function createFruit(x, y, sizeIndex) {
       const size = fruitSizes[sizeIndex];
-      const texture = PIXI.Texture.from(`assets/${getFruitTextureName(sizeIndex)}`);
-      
+      const texture = PIXI.Texture.from(`assets/t${sizeIndex + 1}.png`);
       const sprite = new PIXI.Sprite(texture);
       sprite.anchor.set(0.5);
       sprite.width = size;
       sprite.height = size;
       sprite.x = x;
       sprite.y = y;
-      sprite.texture.baseTexture.alphaMode = PIXI.ALPHA_MODES.PREMULTIPLY_ALPHA;
       app.stage.addChild(sprite);
 
       const body = Bodies.circle(x, y, size / 2, {
         restitution: 0.4,
         friction: 0.001,
-        render: { fillStyle: '#ffffff', visible: false }
       });
-      
-      // Сохраняем ссылки между физическим телом и спрайтом
-      body.fruitIndex = sizeIndex;
-      body.sprite = sprite;
-      
+      body.fruit = { sprite, sizeIndex };
+
       World.add(engine.world, body);
-      fruits.push(body);
-      
-      // Проверка смены диапазона
-      if (isInfiniteMode && sizeIndex === currentFruitRange.max) {
-        shiftFruitRange();
-      }
-      
-      return body;
-    }
-
-    // Слияние фруктов
-    function handleCollision(pair) {
-      const bodyA = pair.bodyA;
-      const bodyB = pair.bodyB;
-      
-      // Проверяем, что это фрукты и они одного уровня
-      if (!bodyA.fruitIndex === undefined || !bodyB.fruitIndex === undefined || 
-          bodyA.fruitIndex !== bodyB.fruitIndex) {
-        return;
-      }
-      
-      const sizeIndex = bodyA.fruitIndex;
-      const newIndex = sizeIndex + 1;
-      const x = (bodyA.position.x + bodyB.position.x) / 2;
-      const y = (bodyA.position.y + bodyB.position.y) / 2;
-
-      // Удаляем старые фрукты
-      World.remove(engine.world, bodyA);
-      World.remove(engine.world, bodyB);
-      app.stage.removeChild(bodyA.sprite);
-      app.stage.removeChild(bodyB.sprite);
-      fruits.splice(fruits.indexOf(bodyA), 1);
-      fruits.splice(fruits.indexOf(bodyB), 1);
-
-      // Проверка на выход за пределы диапазона
-      if (isInfiniteMode && newIndex > currentFruitRange.max) {
-        createFruit(x, y, newIndex - 1); // Создаем перед сдвигом
-        shiftFruitRange();
-      } else if (!isInfiniteMode && newIndex < STANDARD_FRUITS) {
-        createFruit(x, y, newIndex);
-      }
-      
-      updateScore((newIndex + 1) * 10);
-    }
-
-    // Сдвиг диапазона
-    function shiftFruitRange() {
-      // Циклический сдвиг
-      sizeToFruitMap.unshift(sizeToFruitMap.pop());
-      
-      // Обновление диапазона
-      currentFruitRange.min = (currentFruitRange.min + 1) % TOTAL_FRUITS;
-      currentFruitRange.max = (currentFruitRange.max + 1) % TOTAL_FRUITS;
-      
-      // Обновление существующих фруктов
-      const fruitsToRemove = [];
-      fruits.forEach(body => {
-        const newSizeIndex = (body.fruitIndex - 1 + TOTAL_FRUITS) % TOTAL_FRUITS;
-        body.fruitIndex = newSizeIndex;
-        
-        const newSize = fruitSizes[newSizeIndex];
-        body.sprite.width = newSize;
-        body.sprite.height = newSize;
-        body.sprite.texture = PIXI.Texture.from(`assets/${getFruitTextureName(newSizeIndex)}`);
-        Body.set(body, { 
-          circleRadius: newSize / 2,
-          render: { fillStyle: '#ffffff', visible: false }
-        });
-        
-        if (newSizeIndex < currentFruitRange.min || newSizeIndex > currentFruitRange.max) {
-          fruitsToRemove.push(body);
-        }
-      });
-      
-      // Удаление фруктов вне диапазона
-      fruitsToRemove.forEach(body => {
-        World.remove(engine.world, body);
-        app.stage.removeChild(body.sprite);
-        fruits.splice(fruits.indexOf(body), 1);
-      });
-      
-      // Обновление следующего фрукта
-      nextFruitIndex = getRandomFruitIndex();
-      showNextFruitPreview();
-    }
-
-    // Остальные функции остаются без изменений
-    function getRandomFruitIndex() {
-      if (!isInfiniteMode) {
-        return Math.floor(Math.random() * 4);
-      }
-      const rangeStart = currentFruitRange.min;
-      const rangeEnd = Math.min(currentFruitRange.min + 3, currentFruitRange.max);
-      return rangeStart + Math.floor(Math.random() * (rangeEnd - rangeStart + 1));
-    }
-
-    function showNextFruitPreview() {
-      const previewContainer = document.getElementById('nextFruitPreview');
-      previewContainer.innerHTML = '';
-      
-      const textureName = getFruitTextureName(nextFruitIndex);
-      const img = document.createElement('img');
-      img.src = `assets/${textureName}`;
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'contain';
-      previewContainer.appendChild(img);
-    }
-
-    function updateScore(value) {
-      score += value;
-      document.getElementById('score').textContent = score;
+      const fruitObj = { sprite, body, sizeIndex };
+      fruits.push(fruitObj);
+      return fruitObj;
     }
 
     function resizeWalls() {
@@ -382,42 +545,100 @@
       World.add(engine.world, [ground, leftWall, rightWall]);
     }
 
-    function startGame(infiniteMode = false) {
-      isInfiniteMode = infiniteMode;
+    function mergeFruits(f1, f2) {
+      if (!f1 || !f2) return;
+      if (f1.sizeIndex >= fruitSizes.length - 1) return;
+      const newIndex = f1.sizeIndex + 1;
+      const newX = (f1.body.position.x + f2.body.position.x) / 2;
+      const newY = (f1.body.position.y + f2.body.position.y) / 2;
+      World.remove(engine.world, f1.body);
+      World.remove(engine.world, f2.body);
+      app.stage.removeChild(f1.sprite);
+      app.stage.removeChild(f2.sprite);
+      fruits.splice(fruits.indexOf(f1), 1);
+      fruits.splice(fruits.indexOf(f2), 1);
+      createFruit(newX, newY, newIndex);
+      updateScore((newIndex + 1) * 10);
+    }
+
+    function showNextFruitPreview() {
+      const previewContainer = document.getElementById('nextFruitPreview');
+      previewContainer.innerHTML = '';
+      
+      const size = fruitSizes[nextFruitIndex];
+      const img = document.createElement('img');
+      img.src = `assets/t${nextFruitIndex + 1}.png`;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      previewContainer.appendChild(img);
+    }
+
+    // Функция для удаления маленьких фруктов (с учетом текущего улучшения)
+    function removeSmallFruits() {
+      if (removeCharges <= 0) return;
+      
+      const smallFruits = fruits.filter(f => f.sizeIndex <= currentRemoveMaxLevel);
+      smallFruits.forEach(fruit => {
+        World.remove(engine.world, fruit.body);
+        app.stage.removeChild(fruit.sprite);
+      });
+      fruits = fruits.filter(f => f.sizeIndex > currentRemoveMaxLevel);
+      
+      // Уменьшаем количество зарядов
+      removeCharges--;
+      updateRemoveButtonText();
+    }
+
+    // Функция для тряски фруктов (усиленная версия)
+    function shakeFruits() {
+      fruits.forEach(fruit => {
+        const force = {
+          x: (Math.random() - 0.5) * 0.05, // Увеличенная сила встряхивания
+          y: 0 // Добавляем немного вертикального движения
+        };
+        Body.applyForce(fruit.body, fruit.body.position, force);
+      });
+    }
+
+    // Функция для безопасного позиционирования фрукта у границ
+    function getSafeDropX(x) {
+      const width = app.renderer.width;
+      if (x < BORDER_SAFE_MARGIN) {
+        return BORDER_SAFE_MARGIN;
+      } else if (x > width - BORDER_SAFE_MARGIN) {
+        return width - BORDER_SAFE_MARGIN;
+      }
+      return x;
+    }
+
+    function startGame() {
       document.getElementById('startScreen').style.display = 'none';
       canDrop = true;
-      
-      if (isInfiniteMode) {
-        currentFruitRange = { min: 0, max: FRUIT_RANGE_SIZE - 1 };
-        sizeToFruitMap = Array.from({length: TOTAL_FRUITS}, (_, i) => i);
-        
-        const container = document.getElementById('gameContainer');
-        const centerX = container.clientWidth / 2;
-        
-        for (let i = 0; i < 3; i++) {
-          const x = centerX - 100 + (i * 70);
-          createFruit(x, container.clientHeight * 0.7 - (i * 20), i);
-        }
-      } else {
-        currentFruitRange = { min: 0, max: STANDARD_FRUITS - 1 };
-      }
-      
-      nextFruitIndex = getRandomFruitIndex();
+      nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
       showNextFruitPreview();
+      
+      // Обновляем текст кнопки удаления
+      updateRemoveButtonText();
+      
+      if (!audioInitialized) {
+        initAudio();
+      } else if (isSoundOn) {
+        playMusic();
+      }
     }
 
     function endGame() {
       document.getElementById('gameOverScreen').style.display = 'block';
       if (fruits.length > 0) {
-        let largest = fruits[0];
-        fruits.forEach(fruit => {
-          if (fruit.fruitIndex > largest.fruitIndex) largest = fruit;
-        });
-        const div = document.getElementById('largestFruit');
-        const textureName = getFruitTextureName(largest.fruitIndex);
-        div.style.backgroundImage = `url(assets/${textureName})`;
+        const largest = fruits.reduce((a, b) => (a.sizeIndex > b.sizeIndex ? a : b), fruits[0]);
+        if (largest) {
+          const div = document.getElementById('largestFruit');
+          div.style.backgroundImage = `url(assets/t${largest.sizeIndex + 1}.png)`;
+        }
       }
       canDrop = false;
+      stopMusic();
     }
 
     function initGame() {
@@ -431,98 +652,103 @@
 
       engine = Engine.create();
       engine.gravity.y = 1.2;
+      fruits = [];
 
       resizeWalls();
-      
-      // Обработчик столкновений
-      Events.on(engine, 'collisionStart', event => {
-        const pairs = event.pairs;
-        for (let i = 0; i < pairs.length; i++) {
-          handleCollision(pairs[i]);
+      window.addEventListener('resize', () => {
+        app.renderer.resize(container.clientWidth, container.clientHeight);
+      });
+
+      Events.on(engine, 'collisionStart', (e) => {
+        for (const pair of e.pairs) {
+          const a = pair.bodyA.fruit;
+          const b = pair.bodyB.fruit;
+          if (!a || !b || a === b) continue;
+          if (a.sizeIndex === b.sizeIndex) {
+            const f1 = fruits.find(f => f.body === pair.bodyA);
+            const f2 = fruits.find(f => f.body === pair.bodyB);
+            if (f1 && f2) mergeFruits(f1, f2);
+          }
         }
       });
 
+      let checkTimer = 0;
       app.ticker.add((delta) => {
         Engine.update(engine, delta * 16.666);
-        fruits.forEach(body => {
-          if (body.sprite) {
-            body.sprite.x = body.position.x;
-            body.sprite.y = body.position.y;
-            body.sprite.rotation = body.angle;
-          }
+        fruits.forEach(fruit => {
+          fruit.sprite.x = fruit.body.position.x;
+          fruit.sprite.y = fruit.body.position.y;
+          fruit.sprite.rotation = fruit.body.angle;
         });
+
+        const outOfBounds = fruits.filter(f => f.body.position.y < 0);
+        if (outOfBounds.length > 0) {
+          checkTimer += app.ticker.deltaMS;
+          if (checkTimer > 3000) {
+            endGame();
+          }
+        } else {
+          checkTimer = 0;
+        }
       });
 
       document.getElementById('startScreen').style.display = 'block';
-      document.getElementById('startButton').addEventListener('click', () => startGame(false));
-      document.getElementById('infiniteModeButton').addEventListener('click', () => startGame(true));
-      document.getElementById('restartButton').addEventListener('click', () => location.reload());
-      document.getElementById('soundButton').addEventListener('click', () => {
-        const button = document.getElementById('soundButton');
-        button.textContent = button.textContent === '🔊' ? '🔇' : '🔊';
+      document.getElementById('startButton').addEventListener('click', startGame);
+      document.getElementById('restartButton').addEventListener('click', function() {
+        if (isSoundOn) {
+          stopMusic();
+          playMusic();
+        }
+        location.reload();
       });
+      document.getElementById('soundButton').addEventListener('click', toggleSound);
       
+      // Добавляем обработчики для специальных кнопок
       document.getElementById('removeSmallFruits').addEventListener('click', function(e) {
-        e.stopPropagation();
-        const smallFruits = fruits.filter(f => f.fruitIndex <= 3);
-        smallFruits.forEach(fruit => {
-          World.remove(engine.world, fruit);
-          app.stage.removeChild(fruit.sprite);
-        });
-        fruits = fruits.filter(f => f.fruitIndex > 3);
+        e.stopPropagation(); // Предотвращаем всплытие события
+        removeSmallFruits();
       });
       
       document.getElementById('shakeFruits').addEventListener('click', function(e) {
-        e.stopPropagation();
-        fruits.forEach(fruit => {
-          const force = {
-            x: (Math.random() - 0.5) * 0.05,
-            y: -0.01
-          };
-          Body.applyForce(fruit, fruit.position, force);
-        });
+        e.stopPropagation(); // Предотвращаем всплытие события
+        shakeFruits();
       });
 
       window.addEventListener('pointerdown', (e) => {
-        if (!canDrop || e.target.closest('.special-button')) return;
+        if (!canDrop) return;
+        if (e.target.closest('.special-button')) return; // Игнорируем клики по кнопкам
 
         const rect = app.view.getBoundingClientRect();
         let x = e.clientX - rect.left;
-        x = Math.max(BORDER_SAFE_MARGIN, Math.min(x, app.renderer.width - BORDER_SAFE_MARGIN));
+        
+        // Корректируем позицию для безопасного спавна
+        x = getSafeDropX(x);
         
         createFruit(x, 0, nextFruitIndex);
         canDrop = false;
         setTimeout(() => canDrop = true, 300);
-        nextFruitIndex = getRandomFruitIndex();
+        nextFruitIndex = Math.floor(Math.random() * (currentLevelRange.max - currentLevelRange.min + 1)) + currentLevelRange.min;
         showNextFruitPreview();
       });
     }
 
+    // Загрузка ассетов
     function loadAssets() {
-      const totalStandardAssets = 12;
-      const totalExtraAssets = 4;
+      const totalAssets = 12;
       let loadedAssets = 0;
 
       function updateProgress() {
         loadedAssets++;
-        const progress = Math.round((loadedAssets / (totalStandardAssets + totalExtraAssets)) * 100);
+        const progress = Math.round((loadedAssets / totalAssets) * 100);
         document.getElementById('loadingBar').style.width = `${progress}%`;
         document.getElementById('loadingText').textContent = `Загрузка... ${progress}%`;
 
-        if (loadedAssets === totalStandardAssets + totalExtraAssets) {
+        if (loadedAssets === totalAssets) {
           document.getElementById('startButton').disabled = false;
-          document.getElementById('infiniteModeButton').disabled = false;
         }
       }
 
-      for (let i = 1; i <= totalExtraAssets; i++) {
-        const img = new Image();
-        img.src = `assets/t0${i}.png`;
-        img.onload = updateProgress;
-        img.onerror = updateProgress;
-      }
-
-      for (let i = 1; i <= totalStandardAssets; i++) {
+      for (let i = 1; i <= totalAssets; i++) {
         const img = new Image();
         img.src = `assets/t${i}.png`;
         img.onload = updateProgress;
