@@ -106,7 +106,7 @@
       background: #4CAF50;
       transition: width 0.3s;
     }
-    #startButton, #restartButton {
+    #startButton, #restartButton, #endlessButton {
       margin-top: 20px;
       padding: 10px 20px;
       font-size: 18px;
@@ -116,7 +116,8 @@
       border-radius: 5px;
       cursor: pointer;
     }
-    #startButton:disabled {
+    #startButton:disabled,
+#endlessButton:disabled {
       background: #cccccc;
       cursor: not-allowed;
     }
@@ -734,13 +735,34 @@
 
     // Загрузка ассетов
     function loadAssets() {
-      const totalAssets = 12;
-      let loadedAssets = 0;
+  const assetList = [
+    'assets/t01.png','assets/t02.png','assets/t03.png','assets/t04.png',
+    'assets/t1.png','assets/t2.png','assets/t3.png','assets/t4.png',
+    'assets/t5.png','assets/t6.png','assets/t7.png','assets/t8.png',
+    'assets/t9.png','assets/t10.png','assets/t11.png','assets/t12.png'
+  ];
+  const totalAssets = assetList.length;
+  let loadedAssets = 0;
 
-      function updateProgress() {
-        loadedAssets++;
-        const progress = Math.round((loadedAssets / totalAssets) * 100);
-        document.getElementById('loadingBar').style.width = `${progress}%`;
+  function updateProgress() {
+    loadedAssets++;
+    const progress = Math.round((loadedAssets / totalAssets) * 100);
+    document.getElementById('loadingBar').style.width = `${progress}%`;
+    document.getElementById('loadingText').textContent = `Загрузка... ${progress}%`;
+
+    if (loadedAssets === totalAssets) {
+      document.getElementById('startButton').disabled = false;
+      document.getElementById('endlessButton').disabled = false;
+    }
+  }
+
+  assetList.forEach(src => {
+    const img = new Image();
+    img.src = src;
+    img.onload = updateProgress;
+    img.onerror = updateProgress;
+  });
+}%`;
         document.getElementById('loadingText').textContent = `Загрузка... ${progress}%`;
 
         if (loadedAssets === totalAssets) {
