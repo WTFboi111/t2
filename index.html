@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fruit Merge Game</title>
   <style>
-    /* Все стили остаются без изменений */
     html, body {
       margin: 0;
       padding: 0;
@@ -288,8 +287,22 @@
           restitution: 0.4,
           friction: 0.001,
         });
-        body.fruit = { sprite, sizeIndex: windowIndex, lastSize: size };
-        const fruitObj = { sprite, body, sizeIndex: windowIndex, lastSize: size };
+        
+        body.fruit = { 
+          sprite, 
+          sizeIndex: windowIndex,
+          originalSizeIndex: windowStart + windowIndex,
+          lastSize: size 
+        };
+        
+        const fruitObj = { 
+          sprite, 
+          body, 
+          sizeIndex: windowIndex,
+          originalSizeIndex: windowStart + windowIndex,
+          lastSize: size 
+        };
+        
         fruits.push(fruitObj);
         World.add(engine.world, body);
 
@@ -305,6 +318,8 @@
         for (let i = fruits.length - 1; i >= 0; i--) {
           const f = fruits[i];
           f.sizeIndex -= 1;
+          f.originalSizeIndex -= 1;
+          
           if (f.sizeIndex < 0) {
             World.remove(engine.world, f.body);
             app.stage.removeChild(f.sprite);
@@ -329,7 +344,11 @@
           return originalMergeFruits(f1, f2);
         }
         if (!f1 || !f2) return;
+        
+        if (f1.originalSizeIndex !== f2.originalSizeIndex) return;
+        
         let newIndex = f1.sizeIndex + 1;
+        let newOriginalIndex = f1.originalSizeIndex + 1;
 
         World.remove(engine.world, f1.body);
         World.remove(engine.world, f2.body);
@@ -341,11 +360,15 @@
         if (newIndex >= WINDOW_SIZE) {
           shiftWindow();
           newIndex = WINDOW_SIZE - 1;
+          newOriginalIndex = windowStart + newIndex;
         }
 
         const newX = (f1.body.position.x + f2.body.position.x) / 2;
         const newY = (f1.body.position.y + f2.body.position.y) / 2;
-        createFruit(newX, newY, newIndex);
+        
+        const newFruit = createFruit(newX, newY, newIndex);
+        newFruit.originalSizeIndex = newOriginalIndex;
+        newFruit.body.fruit.originalSizeIndex = newOriginalIndex;
 
         updateScore((newIndex + 1) * 10);
       };
