@@ -161,7 +161,6 @@
   </style>
 </head>
 <body>
-  <!-- HTML структура остается без изменений -->
   <button id="soundButton">🔇</button>
   <div id="scoreboard">Score: <span id="score">0</span></div>
   <div id="nextFruitPreview"></div>
@@ -224,13 +223,13 @@
     let isSoundOn = true;
     let audioInitialized = false;
 
-    /* ===== Новая реализация бесконечного режима ===== */
+    /* ===== Бесконечный режим ===== */
     const EndlessMode = {
       enabled: false,
-      totalFruits: 16,
-      windowSize: 10,
-      dropRange: 8,
-      windowStart: 0,
+      totalFruits: 16,  // t01-t04 + t1-t12
+      windowSize: 10,   // Видимое количество фруктов
+      dropRange: 4,     // Какие фрукты могут выпадать
+      windowStart: 0,   // Начальный индекс окна
       
       init: function() {
         document.getElementById('endlessButton').addEventListener('click', () => {
@@ -272,18 +271,19 @@
           Body.scale(fruit.body, scaleFactor, scaleFactor);
           fruit.lastSize = newSize;
           fruit.sprite.width = fruit.sprite.height = newSize;
+          fruit.globalIndex = globalIdx;
         }
       },
       
-      createFruit: function(x, y, sizeIndex) {
+      createFruit: function(x, y, windowIndex) {
         // Корректируем индекс, если он выходит за пределы окна
-        while (sizeIndex >= this.windowSize) {
+        while (windowIndex >= this.windowSize) {
           this.shiftWindow();
-          sizeIndex -= 1;
+          windowIndex -= 1;
         }
         
-        const size = fruitSizes[sizeIndex];
-        const globalIdx = this.getGlobalIndex(sizeIndex);
+        const size = fruitSizes[windowIndex];
+        const globalIdx = this.getGlobalIndex(windowIndex);
         const texture = PIXI.Texture.from(this.getAssetPath(globalIdx));
         
         const sprite = new PIXI.Sprite(texture);
@@ -302,52 +302,22 @@
         const fruitObj = { 
           sprite, 
           body, 
-          windowIndex: sizeIndex,
+          windowIndex: windowIndex,
           globalIndex: globalIdx,
-          lastSize: size
+          lastSize: size,
+          sizeIndex: windowIndex // Для совместимости
         };
         
         body.fruit = fruitObj;
         fruits.push(fruitObj);
         World.add(engine.world, body);
         
-        // Сдвигаем окно, если достигли максимального фрукта
-        if (sizeIndex === this.windowSize - 1) {
+        // Сдвигаем окно, если достигли максимального фрукта в окне
+        if (windowIndex === this.windowSize - 1) {
           this.shiftWindow();
         }
         
         return fruitObj;
-      },
-      
-      mergeFruits: function(f1, f2) {
-        if (!f1 || !f2) return;
-        
-        // Фрукты могут объединяться только если они одного глобального типа
-        if (f1.globalIndex !== f2.globalIndex) return;
-        
-        const newWindowIndex = f1.windowIndex + 1;
-        const newGlobalIndex = f1.globalIndex + 1;
-        
-        World.remove(engine.world, f1.body);
-        World.remove(engine.world, f2.body);
-        app.stage.removeChild(f1.sprite);
-        app.stage.removeChild(f2.sprite);
-        fruits.splice(fruits.indexOf(f1), 1);
-        fruits.splice(fruits.indexOf(f2), 1);
-        
-        // Если новый индекс выходит за пределы окна - сдвигаем окно
-        if (newWindowIndex >= this.windowSize) {
-          this.shiftWindow();
-          newWindowIndex = this.windowSize - 1;
-        }
-        
-        const newX = (f1.body.position.x + f2.body.position.x) / 2;
-        const newY = (f1.body.position.y + f2.body.position.y) / 2;
-        
-        const newFruit = this.createFruit(newX, newY, newWindowIndex);
-        newFruit.globalIndex = newGlobalIndex;
-        
-        updateScore((newWindowIndex + 1) * 10);
       },
       
       showNextFruitPreview: function() {
@@ -476,7 +446,8 @@
         body, 
         sizeIndex,
         windowIndex: sizeIndex,
-        globalIndex: sizeIndex
+        globalIndex: sizeIndex,
+        lastSize: size
       };
       
       body.fruit = fruitObj;
@@ -497,11 +468,41 @@
     }
 
     function mergeFruits(f1, f2) {
+      if (!f1 || !f2) return;
+      
+      // Для бесконечного режима
       if (EndlessMode.enabled) {
-        return EndlessMode.mergeFruits(f1, f2);
+        // Проверяем, что фрукты одного типа
+        if (f1.globalIndex !== f2.globalIndex) return;
+        
+        // Вычисляем новый глобальный индекс с цикличностью
+        const newGlobalIndex = (f1.globalIndex + 1) % EndlessMode.totalFruits;
+        let newWindowIndex = f1.windowIndex + 1;
+        
+        // Если новый индекс выходит за пределы окна - сдвигаем окно
+        if (newWindowIndex >= EndlessMode.windowSize) {
+          EndlessMode.shiftWindow();
+          newWindowIndex = EndlessMode.windowSize - 1;
+        }
+        
+        const newX = (f1.body.position.x + f2.body.position.x) / 2;
+        const newY = (f1.body.position.y + f2.body.position.y) / 2;
+        
+        World.remove(engine.world, f1.body);
+        World.remove(engine.world, f2.body);
+        app.stage.removeChild(f1.sprite);
+        app.stage.removeChild(f2.sprite);
+        fruits.splice(fruits.indexOf(f1), 1);
+        fruits.splice(fruits.indexOf(f2), 1);
+        
+        const newFruit = EndlessMode.createFruit(newX, newY, newWindowIndex);
+        newFruit.globalIndex = newGlobalIndex;
+        updateScore((newWindowIndex + 1) * 10);
+        return;
       }
       
-      if (!f1 || !f2) return;
+      // Для обычного режима
+      if (f1.sizeIndex !== f2.sizeIndex) return;
       if (f1.sizeIndex >= fruitSizes.length - 1) return;
       
       const newIndex = f1.sizeIndex + 1;
