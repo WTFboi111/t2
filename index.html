@@ -200,7 +200,7 @@
     const Body = Matter.Body;
     const Events = Matter.Events;
 
-    let app, engine, fruits, canDrop, nextFruitIndex;
+    let app, engine, fruits = [], canDrop = true, nextFruitIndex = 0;
     let score = 0;
     const baseSize = 25;
     const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.255, i));
@@ -300,8 +300,7 @@
           windowIndex,
           globalIndex: globalIdx,
           lastSize: size,
-          sizeIndex: windowIndex,
-          lastMergeTime: 0
+          sizeIndex: windowIndex
         };
         
         body.fruit = fruitObj;
@@ -443,8 +442,7 @@
         sizeIndex,
         windowIndex: sizeIndex,
         globalIndex: sizeIndex,
-        lastSize: size,
-        lastMergeTime: 0
+        lastSize: size
       };
       
       body.fruit = fruitObj;
@@ -464,20 +462,11 @@
       World.add(engine.world, [ground, leftWall, rightWall]);
     }
 
-    function canMerge(f1, f2) {
-      const now = Date.now();
-      const minDelay = 300;
-      return (now - f1.lastMergeTime >= minDelay) && (now - f2.lastMergeTime >= minDelay);
-    }
-
     function mergeFruits(f1, f2) {
       if (!f1 || !f2 || f1._destroyed || f2._destroyed) return;
-      if (!canMerge(f1, f2)) return;
       
       f1._destroyed = true;
       f2._destroyed = true;
-      f1.lastMergeTime = Date.now();
-      f2.lastMergeTime = Date.now();
       
       if (EndlessMode.enabled) {
         if (f1.globalIndex !== f2.globalIndex) return;
@@ -655,23 +644,15 @@
           const b = pair.bodyB.fruit;
           if (!a || !b || a === b) continue;
           
-          if (a._isMerging || b._isMerging) continue;
-          a._isMerging = true;
-          b._isMerging = true;
-          
-          setTimeout(() => {
-            if (EndlessMode.enabled) {
-              if (a.globalIndex === b.globalIndex) {
-                mergeFruits(a, b);
-              }
-            } else {
-              if (a.sizeIndex === b.sizeIndex) {
-                mergeFruits(a, b);
-              }
+          if (EndlessMode.enabled) {
+            if (a.globalIndex === b.globalIndex) {
+              mergeFruits(a, b);
             }
-            a._isMerging = false;
-            b._isMerging = false;
-          }, 50);
+          } else {
+            if (a.sizeIndex === b.sizeIndex) {
+              mergeFruits(a, b);
+            }
+          }
         }
       });
 
