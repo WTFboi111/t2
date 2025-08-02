@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fruit Merge Game</title>
   <style>
-    /* Все стили остаются без изменений */
     html, body {
       margin: 0;
       padding: 0;
@@ -195,41 +194,37 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
   <script>
-    // Matter.js модули
     const Engine = Matter.Engine;
     const World = Matter.World;
     const Bodies = Matter.Bodies;
     const Body = Matter.Body;
     const Events = Matter.Events;
 
-    // Глобальные переменные
     let app, engine, fruits, canDrop, nextFruitIndex;
     let score = 0;
     const baseSize = 25;
     const fruitSizes = Array.from({ length: 12 }, (_, i) => baseSize * Math.pow(1.255, i));
     const BORDER_SAFE_MARGIN = 30;
+    const MAX_FRUITS = 50;
 
-    // Переменные для улучшений
     let currentLevelRange = { min: 0, max: 3 };
     let currentRemoveMaxLevel = 3;
     let removeCharges = 1;
     const CHARGE_SCORE_INTERVAL = 5000;
     let lastChargeScore = 0;
 
-    // Аудио переменные
     let audioContext;
     let musicSource;
     let backgroundMusicBuffer;
     let isSoundOn = true;
     let audioInitialized = false;
 
-    /* ===== Бесконечный режим ===== */
     const EndlessMode = {
       enabled: false,
-      totalFruits: 16,  // t01-t04 + t1-t12
-      windowSize: 10,   // Видимое количество фруктов
-      dropRange: 8,     // Какие фрукты могут выпадать
-      windowStart: 0,   // Начальный индекс окна
+      totalFruits: 16,
+      windowSize: 10,
+      dropRange: 4,
+      windowStart: 0,
       
       init: function() {
         document.getElementById('endlessButton').addEventListener('click', () => {
@@ -240,8 +235,7 @@
       },
       
       getAssetPath: function(globalIdx) {
-        return globalIdx < 4 ? `assets/t0${globalIdx + 1}.png` 
-                            : `assets/t${globalIdx - 3}.png`;
+        return globalIdx < 4 ? `assets/t0${globalIdx + 1}.png` : `assets/t${globalIdx - 3}.png`;
       },
       
       getGlobalIndex: function(windowIndex) {
@@ -262,7 +256,6 @@
             continue;
           }
           
-          // Обновляем текстуру и размер
           const globalIdx = this.getGlobalIndex(fruit.windowIndex);
           fruit.sprite.texture = PIXI.Texture.from(this.getAssetPath(globalIdx));
           
@@ -276,11 +269,13 @@
       },
       
       createFruit: function(x, y, windowIndex) {
-        // Корректируем индекс, если он выходит за пределы окна
-        while (windowIndex >= this.windowSize) {
-          this.shiftWindow();
-          windowIndex -= 1;
+        if (fruits.length >= MAX_FRUITS) {
+          const oldestFruit = fruits.shift();
+          World.remove(engine.world, oldestFruit.body);
+          app.stage.removeChild(oldestFruit.sprite);
         }
+
+        windowIndex = Math.min(windowIndex, this.windowSize * 2);
         
         const size = fruitSizes[windowIndex];
         const globalIdx = this.getGlobalIndex(windowIndex);
@@ -302,20 +297,16 @@
         const fruitObj = { 
           sprite, 
           body, 
-          windowIndex: windowIndex,
+          windowIndex,
           globalIndex: globalIdx,
           lastSize: size,
-          sizeIndex: windowIndex // Для совместимости
+          sizeIndex: windowIndex,
+          lastMergeTime: 0
         };
         
         body.fruit = fruitObj;
         fruits.push(fruitObj);
         World.add(engine.world, body);
-        
-        // Сдвигаем окно, если достигли максимального фрукта в окне
-        if (windowIndex === this.windowSize - 1) {
-          this.shiftWindow();
-        }
         
         return fruitObj;
       },
@@ -327,16 +318,15 @@
         const nextGlobalIdx = this.getGlobalIndex(nextFruitIndex);
         const img = document.createElement('img');
         img.src = this.getAssetPath(nextGlobalIdx);
-        img.style.width = '50px';
-        img.style.height = '50px';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
         previewContainer.appendChild(img);
       }
     };
     
-    // Инициализируем бесконечный режим
     EndlessMode.init();
 
-    // Основные функции игры
     async function initAudio() {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -426,6 +416,12 @@
         return EndlessMode.createFruit(x, y, sizeIndex);
       }
       
+      if (fruits.length >= MAX_FRUITS) {
+        const oldestFruit = fruits.shift();
+        World.remove(engine.world, oldestFruit.body);
+        app.stage.removeChild(oldestFruit.sprite);
+      }
+
       const size = fruitSizes[sizeIndex];
       const texture = PIXI.Texture.from(`assets/t${sizeIndex + 1}.png`);
       const sprite = new PIXI.Sprite(texture);
@@ -447,7 +443,8 @@
         sizeIndex,
         windowIndex: sizeIndex,
         globalIndex: sizeIndex,
-        lastSize: size
+        lastSize: size,
+        lastMergeTime: 0
       };
       
       body.fruit = fruitObj;
@@ -467,19 +464,27 @@
       World.add(engine.world, [ground, leftWall, rightWall]);
     }
 
+    function canMerge(f1, f2) {
+      const now = Date.now();
+      const minDelay = 300;
+      return (now - f1.lastMergeTime >= minDelay) && (now - f2.lastMergeTime >= minDelay);
+    }
+
     function mergeFruits(f1, f2) {
-      if (!f1 || !f2) return;
+      if (!f1 || !f2 || f1._destroyed || f2._destroyed) return;
+      if (!canMerge(f1, f2)) return;
       
-      // Для бесконечного режима
+      f1._destroyed = true;
+      f2._destroyed = true;
+      f1.lastMergeTime = Date.now();
+      f2.lastMergeTime = Date.now();
+      
       if (EndlessMode.enabled) {
-        // Проверяем, что фрукты одного типа
         if (f1.globalIndex !== f2.globalIndex) return;
         
-        // Вычисляем новый глобальный индекс с цикличностью
         const newGlobalIndex = (f1.globalIndex + 1) % EndlessMode.totalFruits;
         let newWindowIndex = f1.windowIndex + 1;
         
-        // Если новый индекс выходит за пределы окна - сдвигаем окно
         if (newWindowIndex >= EndlessMode.windowSize) {
           EndlessMode.shiftWindow();
           newWindowIndex = EndlessMode.windowSize - 1;
@@ -492,8 +497,7 @@
         World.remove(engine.world, f2.body);
         app.stage.removeChild(f1.sprite);
         app.stage.removeChild(f2.sprite);
-        fruits.splice(fruits.indexOf(f1), 1);
-        fruits.splice(fruits.indexOf(f2), 1);
+        fruits = fruits.filter(f => f !== f1 && f !== f2);
         
         const newFruit = EndlessMode.createFruit(newX, newY, newWindowIndex);
         newFruit.globalIndex = newGlobalIndex;
@@ -501,7 +505,6 @@
         return;
       }
       
-      // Для обычного режима
       if (f1.sizeIndex !== f2.sizeIndex) return;
       if (f1.sizeIndex >= fruitSizes.length - 1) return;
       
@@ -513,8 +516,7 @@
       World.remove(engine.world, f2.body);
       app.stage.removeChild(f1.sprite);
       app.stage.removeChild(f2.sprite);
-      fruits.splice(fruits.indexOf(f1), 1);
-      fruits.splice(fruits.indexOf(f2), 1);
+      fruits = fruits.filter(f => f !== f1 && f !== f2);
       
       createFruit(newX, newY, newIndex);
       updateScore((newIndex + 1) * 10);
@@ -595,6 +597,12 @@
     }
 
     function endGame() {
+      fruits.forEach(fruit => {
+        World.remove(engine.world, fruit.body);
+        app.stage.removeChild(fruit.sprite);
+      });
+      fruits = [];
+      
       document.getElementById('gameOverScreen').style.display = 'block';
       if (fruits.length > 0) {
         let largest;
@@ -635,20 +643,35 @@
       });
 
       Events.on(engine, 'collisionStart', (e) => {
+        const handledPairs = new Set();
+        
         for (const pair of e.pairs) {
+          const pairKey = [pair.bodyA.id, pair.bodyB.id].sort().join('-');
+          if (handledPairs.has(pairKey)) continue;
+          
+          handledPairs.add(pairKey);
+          
           const a = pair.bodyA.fruit;
           const b = pair.bodyB.fruit;
           if (!a || !b || a === b) continue;
           
-          if (EndlessMode.enabled) {
-            if (a.globalIndex === b.globalIndex) {
-              mergeFruits(a, b);
+          if (a._isMerging || b._isMerging) continue;
+          a._isMerging = true;
+          b._isMerging = true;
+          
+          setTimeout(() => {
+            if (EndlessMode.enabled) {
+              if (a.globalIndex === b.globalIndex) {
+                mergeFruits(a, b);
+              }
+            } else {
+              if (a.sizeIndex === b.sizeIndex) {
+                mergeFruits(a, b);
+              }
             }
-          } else {
-            if (a.sizeIndex === b.sizeIndex) {
-              mergeFruits(a, b);
-            }
-          }
+            a._isMerging = false;
+            b._isMerging = false;
+          }, 50);
         }
       });
 
